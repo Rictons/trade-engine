@@ -1,0 +1,3228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradeEngine v6</title>
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #060e1a;
+      --panel: #0c1828;
+      --panel2: #101f30;
+      --line: #1a2f48;
+      --line2: #243d5c;
+      --text: #e8f4ff;
+      --muted: #7a9ab8;
+      --buy: #00d4ff;
+      --sell: #ff8c00;
+      --wait: #8faabb;
+      --green: #00e676;
+      --red: #ff4d6a;
+      --gold: #ffd700;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,180,255,0.07) 0%, transparent 70%),
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(26,47,72,0.3) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(26,47,72,0.2) 40px);
+    }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--panel); }
+    ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 4px; }
+
+    .wrap { max-width: 1700px; margin: 0 auto; padding: 16px; }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(12,24,40,0.95);
+      border: 1px solid var(--line2);
+      border-radius: 16px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .topbar-brand {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      white-space: nowrap;
+      margin-right: 8px;
+    }
+    .topbar-brand span { color: var(--buy); }
+    .topbar-inputs {
+      display: flex;
+      gap: 10px;
+      flex: 1;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .inp-group { display: flex; flex-direction: column; gap: 4px; }
+    .inp-group label { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 1px; }
+    input, select {
+      padding: 9px 13px;
+      border-radius: 10px;
+      border: 1px solid var(--line2);
+      background: rgba(6,14,26,0.8);
+      color: var(--text);
+      font-size: 14px;
+      font-family: var(--mono);
+    }
+    input:focus, select:focus { outline: none; border-color: var(--buy); box-shadow: 0 0 0 2px rgba(0,212,255,0.1); }
+    .btn {
+      padding: 9px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--buy);
+      background: rgba(0,212,255,0.08);
+      color: var(--buy);
+      font-size: 13px;
+      font-family: var(--sans);
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: rgba(0,212,255,0.18); }
+    .btn.secondary { border-color: var(--line2); color: var(--muted); background: transparent; }
+    .btn.secondary:hover { border-color: var(--muted); color: var(--text); }
+    .btn.danger { border-color: var(--red); color: var(--red); background: rgba(255,77,106,0.06); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--muted); color: var(--muted); }
+    .btn.danger:hover { background: rgba(255,77,106,0.15); }
+    .status-pill {
+      margin-left: auto;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line2);
+      background: rgba(6,14,26,0.8);
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.9fr) 420px;
+      gap: 14px;
+    }
+
+    /* ── PANELS ── */
+    .panel {
+      background: rgba(12,24,40,0.95);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+    .chart-panel { padding: 16px; }
+    .side { display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── DECISION BOX ── */
+    .decision-box {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 16px;
+      align-items: center;
+      background: rgba(6,14,26,0.6);
+      border: 1px solid var(--line2);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+    }
+    .decision-action {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -1px;
+      font-family: var(--mono);
+    }
+    .action-buy  { color: var(--buy); text-shadow: 0 0 20px rgba(0,212,255,0.4); }
+    .action-sell { color: var(--sell); text-shadow: 0 0 20px rgba(255,140,0,0.4); }
+    .action-wait { color: var(--wait); }
+    .action-watch { color: var(--gold); text-shadow: 0 0 20px rgba(255,215,0,0.18); }
+    .decision-meta { 
+      font-size: 13px; 
+      color: var(--muted); 
+      line-height: 1.5; 
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+    .decision-meta strong { color: var(--text); }
+    .confidence-badge {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: var(--mono);
+      font-weight: 700;
+      border: 1px solid;
+    }
+    .conf-high   { border-color: var(--green); color: var(--green); background: rgba(0,230,118,0.07); }
+    .conf-medium { border-color: var(--gold);  color: var(--gold);  background: rgba(255,215,0,0.07); }
+    .conf-low    { border-color: var(--muted); color: var(--muted); background: transparent; }
+
+    /* ── PLAN GRID ── */
+    .plan-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .plan-item {
+      background: rgba(0,212,255,0.04);
+      border: 1px solid rgba(0,212,255,0.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .plan-k { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; }
+    .plan-v { font-size: 16px; font-weight: 700; font-family: var(--mono); }
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .insight-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .insight-k { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; }
+    .insight-v { font-size: 15px; font-weight: 800; font-family: var(--mono); }
+    .insight-sub { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+
+    /* ── NEW PLAN GRID ── */
+    .plan-grid-new {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .plan-item-highlight {
+      background: rgba(0,212,255,0.08) !important;
+      border-color: rgba(0,212,255,0.3) !important;
+    }
+    .plan-editable-wrap { display: flex; align-items: center; }
+    .plan-inline-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(0,212,255,0.3);
+      border-radius: 0;
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--mono);
+      padding: 2px 0;
+      outline: none;
+    }
+    .plan-inline-input:focus { border-bottom-color: var(--buy); }
+    .highlight-input { color: var(--buy); font-size: 16px; }
+    .plan-sub { font-size: 10px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+
+    .stop-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .stop-note {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+      line-height: 1.45;
+    }
+    .buy-quality-panel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .buy-quality-title { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .buy-quality-value { font-size: 18px; font-weight: 800; font-family: var(--mono); }
+    .buy-quality-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .buy-quality-badge {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line2);
+      font-size: 11px;
+      font-family: var(--mono);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .trade-filter-panel {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      align-items: center;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .trade-filter-badge {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line2);
+      font-size: 11px;
+      font-family: var(--mono);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .trade-filter-title { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .trade-filter-value { font-size: 18px; font-weight: 800; font-family: var(--mono); }
+    .trade-filter-sub { font-size: 11px; color: var(--muted); line-height: 1.4; margin-top: 4px; }
+    .buy-range-panel {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 10px;
+      background: rgba(0,212,255,0.04);
+      border: 1px solid rgba(0,212,255,0.16);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    .buy-range-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .buy-range-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 10px;
+    }
+    .buy-range-k { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .buy-range-v { font-size: 16px; font-weight: 800; font-family: var(--mono); }
+    .buy-range-sub { font-size: 10px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+    .entry-verdict-panel {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .entry-verdict-k { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; }
+    .entry-verdict-v { font-size: 18px; font-weight: 800; font-family: var(--mono); }
+    .entry-verdict-sub { font-size: 11px; color: var(--muted); line-height: 1.4; margin-top: 4px; }
+
+    /* ── PROBABILITY PANEL ── */
+    .prob-panel {
+      background: rgba(0,212,255,0.03);
+      border: 1px solid rgba(0,212,255,0.15);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .prob-main { display: flex; gap: 20px; align-items: center; }
+    .prob-circle-wrap { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+    .prob-svg { width: 80px; height: 80px; }
+    .prob-inner {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      line-height: 1.1;
+    }
+    .prob-pct { font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--buy); }
+    .prob-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .prob-details { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .prob-detail-item {}
+    .pd-k { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.7px; }
+    .pd-v { font-size: 14px; font-weight: 700; font-family: var(--mono); margin-top: 1px; }
+    .pd-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+    /* ── DAYS SLIDER ── */
+    .days-panel { display: flex; flex-direction: column; gap: 6px; }
+    .days-header { display: flex; justify-content: space-between; align-items: baseline; }
+    .days-label { font-size: 11px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; }
+    .days-value-wrap { text-align: right; }
+    .days-num { font-size: 26px; font-weight: 800; font-family: var(--mono); color: var(--gold); }
+    .days-unit { font-size: 11px; color: var(--muted); margin-left: 4px; }
+    .days-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--line2);
+      outline: none;
+      cursor: pointer;
+    }
+    .days-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--gold);
+      cursor: pointer;
+      border: 2px solid var(--bg);
+      box-shadow: 0 0 6px rgba(255,215,0,0.4);
+    }
+    .days-slider::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--gold);
+      cursor: pointer;
+      border: 2px solid var(--bg);
+    }
+    .days-range-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: var(--mono); }
+    .days-note { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 2px; }
+
+    /* ── DAYS TO 3% PANEL ── */
+    .days3-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: center;
+      background: rgba(0,212,255,0.03);
+      border: 1px solid rgba(0,212,255,0.12);
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+    .days3-label { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+    .days3-value-row { display: flex; align-items: baseline; gap: 6px; }
+    .days3-num { font-size: 36px; font-weight: 800; font-family: var(--mono); color: var(--gold); line-height: 1; }
+    .days3-unit { font-size: 12px; color: var(--muted); }
+    .days3-sub { font-size: 11px; color: var(--muted); margin-top: 5px; font-family: var(--mono); }
+    .days3-bar-wrap { display: flex; flex-direction: column; gap: 5px; }
+    .days3-track { position: relative; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: visible; }
+    .days3-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #00e676, #ffd700, #ff4d6a); transition: width 0.5s ease; }
+    .days3-marker {
+      position: absolute; top: 50%; transform: translate(-50%, -50%);
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--gold); border: 2px solid var(--bg);
+      box-shadow: 0 0 6px rgba(255,215,0,0.5);
+      transition: left 0.5s ease;
+    }
+    .days3-range-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); font-family: var(--mono); }
+
+    /* ── OPENING GAP PANEL ── */
+    .gap-panel {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--line2);
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+    .gap-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .gap-title { font-size: 12px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; color: var(--text); font-weight: 700; }
+    .gap-sub { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+    .gap-bars { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+    .gap-bar-row { display: grid; grid-template-columns: 80px 1fr 44px; align-items: center; gap: 8px; }
+    .gap-bar-label { font-size: 11px; font-family: var(--mono); font-weight: 700; }
+    .gap-bar-track { height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .gap-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+    .gap-up   { background: var(--green); }
+    .gap-flat { background: var(--muted); }
+    .gap-down { background: var(--red); }
+    .gap-bar-pct { font-size: 12px; font-family: var(--mono); font-weight: 700; text-align: right; }
+    .gap-verdict {
+      font-size: 13px; font-weight: 700; font-family: var(--mono);
+      padding: 6px 10px; border-radius: 8px; display: inline-block;
+      margin-bottom: 4px;
+    }
+    .gap-verdict.up   { color: var(--green); background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.2); }
+    .gap-verdict.down { color: var(--red);   background: rgba(255,77,106,0.08); border: 1px solid rgba(255,77,106,0.2); }
+    .gap-verdict.flat { color: var(--muted); background: rgba(255,255,255,0.03); border: 1px solid var(--line); }
+    .gap-trials { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 4px; }
+
+    /* ── MIN PROFIT WARNING ── */
+    .min-profit-warn {
+      display: none; align-items: center; gap: 8px;
+      background: rgba(255,215,0,0.07); border: 1px solid rgba(255,215,0,0.25);
+      border-radius: 8px; padding: 7px 12px; margin-top: 6px;
+      font-size: 12px; color: var(--gold); font-family: var(--mono);
+    }
+    .min-profit-warn.visible { display: flex; }
+
+    /* ── EARNINGS WARNING ── */
+    .earnings-warn {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,140,0,0.08);
+      border: 1px solid rgba(255,140,0,0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      color: var(--sell);
+    }
+    .earnings-warn.visible { display: flex; }
+    .earnings-icon { font-size: 18px; }
+
+    /* ── STATS ROW ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .stat {
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .stat .k { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; }
+    .stat .v { font-size: 18px; font-weight: 800; font-family: var(--mono); line-height: 1.1; }
+    .stat .sub { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+    .rsi-bar-wrap { margin-top: 5px; height: 3px; background: var(--line2); border-radius: 2px; overflow: hidden; }
+    .rsi-bar { height: 100%; border-radius: 2px; transition: width 0.4s; }
+
+    /* ── VIEW TABS ── */
+    .view-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tabs-left { display: flex; gap: 6px; }
+    .tab {
+      padding: 5px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line2);
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab.active { border-color: var(--buy); color: var(--buy); background: rgba(0,212,255,0.08); }
+    .tab:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+
+    /* ── CHART ── */
+    #chart {
+      width: 100%;
+      height: 500px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #070f1c;
+    }
+
+    /* ── LEGEND ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+    /* ── SIDE CARDS ── */
+    .side-card {
+      background: rgba(12,24,40,0.95);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+    }
+    .side-card h3 {
+      font-size: 13px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    /* ── DIRECTORY ── */
+    .directory-search { margin-bottom: 8px; width: 100%; }
+    .directory {
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .ticker-row {
+      display: grid;
+      grid-template-columns: 26px 60px 1fr 58px 52px 44px 58px;
+      gap: 6px;
+      padding: 9px 10px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      align-items: center;
+      transition: background 0.1s;
+    }
+    .ticker-row:first-child { border-top: none; }
+    .ticker-row:hover { background: rgba(255,255,255,0.02); }
+    .ticker-rank { font-weight: 800; font-size: 13px; text-align: center; color: var(--gold); font-family: var(--mono); }
+    .ticker-symbol { font-weight: 700; font-size: 13px; font-family: var(--mono); }
+    .ticker-name { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ticker-action {
+      font-size: 11px; font-weight: 700; padding: 5px 8px;
+      border-radius: 6px; text-align: center;
+      border: 1px solid rgba(255,255,255,0.08);
+      font-family: var(--mono); white-space: nowrap;
+    }
+    .action-buy    { color: var(--buy);  border-color: rgba(0,212,255,0.25);  background: rgba(0,212,255,0.05); }
+    .action-sell   { color: var(--sell); border-color: rgba(255,140,0,0.25);  background: rgba(255,140,0,0.05); }
+    .action-wait   { color: var(--wait); border-color: var(--line); }
+    .action-watch  { color: var(--gold); border-color: rgba(255,215,0,0.25); background: rgba(255,215,0,0.05); }
+    .action-loading{ color: var(--muted);}
+    .action-error  { color: var(--red);  }
+    .ticker-load {
+      padding: 5px 10px; font-size: 11px; border-radius: 7px;
+      border: 1px solid var(--line2); background: transparent;
+      color: var(--muted); cursor: pointer; font-family: var(--mono);
+      transition: all 0.15s;
+    }
+    .ticker-load:hover { border-color: var(--buy); color: var(--buy); }
+    .ticker-prob { font-size: 11px; font-family: var(--mono); font-weight: 700; text-align: center; }
+    .ticker-score { font-size: 10px; font-family: var(--mono); color: var(--muted); text-align: center; }
+
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .small { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    /* ── JOURNAL ── */
+    .journal-add {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .journal-add input, .journal-add select { font-size: 12px; padding: 7px 10px; }
+    .journal-list { max-height: 200px; overflow-y: auto; }
+    .journal-entry {
+      display: grid;
+      grid-template-columns: 60px 1fr 1fr 1fr auto;
+      gap: 6px;
+      padding: 7px 4px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      align-items: center;
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+    .journal-entry:first-child { border-top: none; }
+    .j-win  { color: var(--green); font-weight: 700; }
+    .j-loss { color: var(--red);   font-weight: 700; }
+    .j-open { color: var(--gold);  font-weight: 700; }
+    .journal-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .jstat {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .jstat .jk { font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; margin-bottom: 4px; }
+    .jstat .jv { font-size: 16px; font-weight: 800; font-family: var(--mono); }
+    .del-btn {
+      background: none; border: none; color: var(--red);
+      cursor: pointer; font-size: 14px; padding: 2px 4px;
+      opacity: 0.5; transition: opacity 0.15s;
+    }
+    .del-btn:hover { opacity: 1; }
+
+    /* ── EXPORT ── */
+    .export-row { display: flex; gap: 8px; margin-top: 10px; }
+
+    @media (max-width: 1200px) {
+      .layout { grid-template-columns: 1fr; }
+      .side { display: grid; grid-template-columns: 1fr 1fr; }
+      .stats { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .plan-grid { grid-template-columns: repeat(2, 1fr); }
+      .stop-grid { grid-template-columns: repeat(2, 1fr); }
+      .side { grid-template-columns: 1fr; }
+      #chart { height: 380px; }
+      .decision-box { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-brand">TRADE<span>ENGINE</span></div>
+    <div class="topbar-inputs">
+      <div class="inp-group">
+        <label>Ticker</label>
+        <input id="ticker" value="SPY" placeholder="AAPL, MSFT, NVDA…" style="width:150px" />
+      </div>
+      <div class="inp-group">
+        <label>Account size (£)</label>
+        <input id="accountSize" type="number" min="1" step="1" value="200" style="width:120px" />
+      </div>
+      <button class="btn" id="loadBtn">▶ Load</button>
+      <button class="btn secondary" id="retryBtn">↺ Retry failed now</button>
+      <button class="btn secondary" id="downloadBtn" style="margin-left:10px">⬇ Download Status</button>
+    </div>
+    <div class="status-pill" id="status">Ready</div>
+  </div>
+
+  <div class="layout">
+
+    <!-- LEFT: CHART PANEL -->
+    <div class="panel chart-panel">
+
+      <!-- Decision -->
+      <div class="decision-box" id="decisionBox">
+        <div class="decision-action action-wait" id="decisionValue">WAIT</div>
+        <div class="decision-meta">
+          <div id="decisionReason">Load a ticker to calculate the current action.</div>
+          <div style="margin-top:4px; font-size:12px; color:var(--muted);" id="tickerLabel">—</div>
+        </div>
+        <div class="confidence-badge conf-low" id="confBadge">—</div>
+      </div>
+
+      <!-- Earnings warning -->
+      <div class="earnings-warn" id="earningsWarn">
+        <span class="earnings-icon">⚠️</span>
+        <span id="earningsText">Earnings report approaching — consider avoiding overnight hold.</span>
+      </div>
+
+      <!-- Bear market regime warning -->
+      <div class="earnings-warn" id="regimeWarn" style="background:rgba(255,77,106,0.08);border-color:rgba(255,77,106,0.3);color:var(--red);">
+        <span class="earnings-icon">🐻</span>
+        <span id="regimeText">Bear market regime detected — SPY &amp; QQQ both in downtrend. BUY NOW signals carry higher risk.</span>
+      </div>
+
+      <!-- Trade Plan Panel -->
+      <div id="planGrid" style="display:none;">
+        <!-- Row 1: Entry + Suggested Sell + Capital + Shares -->
+        <div class="plan-grid-new">
+          <div class="plan-item">
+            <div class="plan-k">Entry price</div>
+            <div class="plan-v plan-editable-wrap">
+              <input id="entryOverride" type="number" step="0.01" placeholder="Auto" class="plan-inline-input" />
+            </div>
+            <div class="plan-sub" id="planEntryBase">Last close: —</div>
+          </div>
+          <div class="plan-item plan-item-highlight">
+            <div class="plan-k">Suggested sell</div>
+            <div class="plan-v plan-editable-wrap">
+              <input id="sellOverride" type="number" step="0.01" placeholder="Auto" class="plan-inline-input highlight-input" />
+            </div>
+            <div class="plan-sub" id="planSellPct">—</div>
+          </div>
+          <div class="plan-item">
+            <div class="plan-k">Capital</div>
+            <div class="plan-v" id="planCapital">—</div>
+          </div>
+          <div class="plan-item">
+            <div class="plan-k">Shares</div>
+            <div class="plan-v" id="planShares">—</div>
+          </div>
+        </div>
+        <div class="buy-quality-panel" id="buyQualityPanel">
+          <div>
+            <div class="buy-quality-title">Buy quality</div>
+            <div class="buy-quality-value" id="buyQualityValue">—</div>
+            <div class="buy-quality-sub" id="buyQualitySub">Load a ticker to assess whether it is a good buy.</div>
+          </div>
+          <div class="buy-quality-badge" id="buyQualityBadge">—</div>
+        </div>
+        <div class="trade-filter-panel" id="tradeFilterPanel">
+          <div class="trade-filter-badge" id="tradeFilterBadge">—</div>
+          <div>
+            <div class="trade-filter-title">Trade filter</div>
+            <div class="trade-filter-value" id="tradeFilterValue">—</div>
+            <div class="trade-filter-sub" id="tradeFilterSub">Load a ticker to check whether the setup should be taken or skipped. Filter tuned to surface more tradable names.</div>
+          </div>
+        </div>
+        <div class="buy-range-panel" id="buyRangePanel">
+          <div class="buy-range-grid">
+            <div class="buy-range-item">
+              <div class="buy-range-k">Buy range low</div>
+              <div class="buy-range-v" id="buyRangeLow">—</div>
+              <div class="buy-range-sub" id="buyRangeLowSub">0.5× ATR below last close</div>
+            </div>
+            <div class="buy-range-item plan-item-highlight">
+              <div class="buy-range-k">Ideal entry</div>
+              <div class="buy-range-v" id="buyRangeMid">—</div>
+              <div class="buy-range-sub" id="buyRangeMidSub">Yesterday close / planned entry</div>
+            </div>
+            <div class="buy-range-item">
+              <div class="buy-range-k">Buy range high</div>
+              <div class="buy-range-v" id="buyRangeHigh">—</div>
+              <div class="buy-range-sub" id="buyRangeHighSub">0.5× ATR above last close</div>
+            </div>
+          </div>
+          <div class="entry-verdict-panel">
+            <div class="entry-verdict-k">Entry verdict</div>
+            <div class="entry-verdict-v" id="entryVerdict">—</div>
+            <div class="entry-verdict-sub" id="entryVerdictSub">Enter a live/expected entry in the Entry price field to check whether you are still inside range.</div>
+          </div>
+        </div>
+        <div class="stop-grid">
+          <div class="plan-item">
+            <div class="plan-k">Swing low</div>
+            <div class="plan-v" id="planSwingLow">—</div>
+            <div class="plan-sub" id="planSwingLowSub">Recent support level</div>
+          </div>
+          <div class="plan-item">
+            <div class="plan-k">ATR stop</div>
+            <div class="plan-v" id="planAtrStop">—</div>
+            <div class="plan-sub" id="planAtrStopSub">2× ATR from entry</div>
+          </div>
+          <div class="plan-item">
+            <div class="plan-k">Structure stop</div>
+            <div class="plan-v" id="planStructureStop">—</div>
+            <div class="plan-sub" id="planStructureStopSub">Swing low minus buffer</div>
+          </div>
+          <div class="plan-item plan-item-highlight">
+            <div class="plan-k">Suggested stop</div>
+            <div class="plan-v" id="planFinalStop">—</div>
+            <div class="plan-sub" id="planFinalStopSub">Wider of ATR / structure</div>
+          </div>
+        </div>
+        <div class="stop-note" id="stopNote">Suggested stop will appear after a ticker loads.</div>
+        <div class="min-profit-warn" id="minProfitWarn">
+          ⚠ Target is below your volatility floor — adjust sell price or extend days
+        </div>
+        <div class="prob-panel">
+          <div class="prob-main">
+            <div class="prob-circle-wrap">
+              <svg viewBox="0 0 80 80" class="prob-svg">
+                <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(0,212,255,0.1)" stroke-width="7"/>
+                <circle cx="40" cy="40" r="34" fill="none" stroke="var(--buy)" stroke-width="7"
+                  stroke-dasharray="213.6" id="probArc"
+                  stroke-dashoffset="213.6"
+                  stroke-linecap="round"
+                  transform="rotate(-90 40 40)"/>
+              </svg>
+              <div class="prob-inner">
+                <div class="prob-pct" id="probPct">—</div>
+                <div class="prob-label">Hit rate</div>
+              </div>
+            </div>
+            <div class="prob-details">
+              <div class="prob-detail-item">
+                <div class="pd-k">Est. profit (£)</div>
+                <div class="pd-v" id="estProfit" style="color:var(--green)">—</div>
+              </div>
+              <div class="prob-detail-item">
+                <div class="pd-k">Profit %</div>
+                <div class="pd-v" id="estProfitPct" style="color:var(--green)">—</div>
+              </div>
+              <div class="prob-detail-item">
+                <div class="pd-k">Signal strength</div>
+                <div class="pd-v" id="signalStrength">—</div>
+              </div>
+              <div class="prob-detail-item">
+                <div class="pd-k">Position</div>
+                <div class="pd-v" id="positionSignal">—</div>
+                <div class="pd-sub" id="positionSignalSub">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="days-panel">
+            <div class="days-header">
+              <div class="days-label">Estimated days to target</div>
+              <div class="days-value-wrap">
+                <span class="days-num" id="daysNum">—</span>
+                <span class="days-unit">trading days</span>
+              </div>
+            </div>
+            <input type="range" id="daysSlider" min="1" max="30" value="3" class="days-slider" />
+            <div class="days-range-labels"><span>1</span><span>10</span><span>20</span><span>30</span></div>
+            <div class="days-note" id="daysNote">Adjust slider to see effect on sell price probability</div>
+          </div>
+        </div>
+
+        <!-- Row 2b: Days to 3% panel -->
+        <div class="days3-panel" id="days3Panel">
+          <div class="days3-left">
+            <div class="days3-label">Days to floor target at 70% probability</div>
+            <div class="days3-value-row">
+              <span class="days3-num" id="days3Num">—</span>
+              <span class="days3-unit" id="days3Unit">trading days</span>
+            </div>
+            <div class="days3-sub" id="days3Sub">—</div>
+          </div>
+          <div class="days3-bar-wrap">
+            <div class="days3-track">
+              <div class="days3-fill" id="days3Fill" style="width:0%"></div>
+              <div class="days3-marker" id="days3Marker" style="left:0%"></div>
+            </div>
+            <div class="days3-range-labels"><span>1</span><span>10</span><span>20</span><span>30+</span></div>
+          </div>
+        </div>
+
+        <!-- Row 2c: Opening gap probability -->
+        <div class="gap-panel" id="gapPanel" style="display:none;">
+          <div class="gap-header">
+            <div class="gap-title">Next open probability</div>
+            <div class="gap-sub">Based on historical opens under same signal conditions</div>
+          </div>
+          <div class="gap-bars">
+            <div class="gap-bar-row">
+              <div class="gap-bar-label" style="color:var(--green)">▲ Gap Up</div>
+              <div class="gap-bar-track"><div class="gap-bar-fill gap-up" id="gapBarUp" style="width:0%"></div></div>
+              <div class="gap-bar-pct" id="gapUpPct">—</div>
+            </div>
+            <div class="gap-bar-row">
+              <div class="gap-bar-label" style="color:var(--muted)">→ Flat</div>
+              <div class="gap-bar-track"><div class="gap-bar-fill gap-flat" id="gapBarFlat" style="width:0%"></div></div>
+              <div class="gap-bar-pct" id="gapFlatPct">—</div>
+            </div>
+            <div class="gap-bar-row">
+              <div class="gap-bar-label" style="color:var(--red)">▼ Gap Down</div>
+              <div class="gap-bar-track"><div class="gap-bar-fill gap-down" id="gapBarDown" style="width:0%"></div></div>
+              <div class="gap-bar-pct" id="gapDownPct">—</div>
+            </div>
+          </div>
+          <div class="gap-verdict" id="gapVerdict">—</div>
+          <div class="gap-trials" id="gapTrials">—</div>
+        </div>
+
+        <!-- Row 3: Market context -->
+        <div class="insight-grid" id="insightGrid" style="grid-template-columns:repeat(6,1fr)">
+          <div class="insight-item">
+            <div class="insight-k">Volatility (ATR%)</div>
+            <div class="insight-v" id="iAtr">—</div>
+            <div class="insight-sub" id="iAtrSub">—</div>
+          </div>
+          <div class="insight-item">
+            <div class="insight-k">Momentum (3D)</div>
+            <div class="insight-v" id="iMom">—</div>
+            <div class="insight-sub" id="iMomSub">—</div>
+          </div>
+          <div class="insight-item">
+            <div class="insight-k">MACD</div>
+            <div class="insight-v" id="iMacd">—</div>
+            <div class="insight-sub" id="iMacdSub">—</div>
+          </div>
+          <div class="insight-item">
+            <div class="insight-k">Volume</div>
+            <div class="insight-v" id="iVol">—</div>
+            <div class="insight-sub" id="iVolSub">—</div>
+          </div>
+          <div class="insight-item">
+            <div class="insight-k">52W position</div>
+            <div class="insight-v" id="i52w">—</div>
+            <div class="insight-sub" id="i52wSub">—</div>
+          </div>
+          <div class="insight-item">
+            <div class="insight-k">Trend</div>
+            <div class="insight-v" id="iTrend">—</div>
+            <div class="insight-sub" id="iTrendSub">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="stats">
+        <div class="stat">
+          <div class="k">Price</div>
+          <div class="v" id="statPrice">—</div>
+          <div class="sub" id="statDate">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">Bias</div>
+          <div class="v" id="statBias">—</div>
+          <div class="sub" id="statBiasSub">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">RSI (14)</div>
+          <div class="v" id="statRsi">—</div>
+          <div class="rsi-bar-wrap"><div class="rsi-bar" id="rsiBar" style="width:0%;background:var(--muted)"></div></div>
+        </div>
+        <div class="stat">
+          <div class="k">Volume</div>
+          <div class="v" id="statVol">—</div>
+          <div class="sub" id="statVolAvg">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">Last buy</div>
+          <div class="v" id="lastBuy">—</div>
+          <div class="sub" id="lastBuyDate">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">Last sell</div>
+          <div class="v" id="lastSell">—</div>
+          <div class="sub" id="lastSellDate">—</div>
+        </div>
+      </div>
+
+      <!-- View tabs -->
+      <div class="view-tabs">
+        <div class="tabs-left">
+          <button class="tab" data-days="7" id="tab7">1W</button>
+          <button class="tab active" data-days="30" id="tab30">1M</button>
+          <button class="tab" data-days="90" id="tab90">3M</button>
+          <button class="tab" data-days="180" id="tab180">6M</button>
+          <button class="tab" data-days="0" id="tab0">All</button>
+        </div>
+        <div class="small" id="chartSubtitle">Load a ticker to begin</div>
+      </div>
+
+      <div id="chart"></div>
+
+      <div class="legend">
+        <div class="badge"><span class="dot" style="background:var(--buy)"></span>BUY crossover</div>
+        <div class="badge"><span class="dot" style="background:var(--sell)"></span>SELL crossover</div>
+        <div class="badge"><span class="dot" style="background:#5ecfee"></span>Short-term strength</div>
+        <div class="badge"><span class="dot" style="background:#e8a050"></span>Short-term weakness</div>
+        <div class="badge"><span class="dot" style="background:rgba(255,255,255,0.3)"></span>Volume</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SIDEBAR -->
+    <div class="side">
+
+      <!-- Directory -->
+      <div class="side-card">
+        <h3>Ticker Directory <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px">sorted by trade quality · take-trade setups first</span></h3>
+        <input id="directorySearch" class="directory-search" placeholder="Search…" />
+        <div style="display:grid;grid-template-columns:26px 60px 1fr 58px 52px 44px 58px;gap:6px;padding:5px 10px;font-size:9px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--line);">
+          <div>#</div><div>Ticker</div><div>Name</div><div>Signal</div><div>Days</div><div>Profit %</div><div></div>
+        </div>
+        <div class="directory" id="tickerDirectory"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const TICKER_DIRECTORY = [
+    { ticker:'AAPL',   name:'Apple Inc.' },
+    { ticker:'ADBE',   name:'Adobe Inc.' },
+    { ticker:'AMD',   name:'Advanced Micro Devices' },
+    { ticker:'AMZN',   name:'Amazon.com, Inc.' },
+    { ticker:'AVGO',   name:'Broadcom Inc.' },
+    { ticker:'BP.L',   name:'BP p.l.c.' },
+    { ticker:'CAT',   name:'Caterpillar Inc.' },
+    { ticker:'COIN',   name:'Coinbase Global' },
+    { ticker:'COST',   name:'Costco Wholesale Corp.' },
+    { ticker:'CRM',   name:'Salesforce, Inc.' },
+    { ticker:'CVX',   name:'Chevron Corporation' },
+    { ticker:'DE',   name:'Deere & Company' },
+    { ticker:'GLD',   name:'SPDR Gold Shares' },
+    { ticker:'GOOGL',   name:'Alphabet Inc.' },
+    { ticker:'GS',   name:'Goldman Sachs Group' },
+    { ticker:'HLN.L',   name:'Haleon plc' },
+    { ticker:'HOOD',   name:'Robinhood Markets' },
+    { ticker:'INTC',   name:'Intel Corporation' },
+    { ticker:'IWM',   name:'iShares Russell 2000 ETF' },
+    { ticker:'JPM',   name:'JPMorgan Chase & Co.' },
+    { ticker:'LLY',   name:'Eli Lilly and Co.' },
+    { ticker:'LMT',   name:'Lockheed Martin' },
+    { ticker:'MA',   name:'Mastercard Inc.' },
+    { ticker:'META',   name:'Meta Platforms, Inc.' },
+    { ticker:'MSFT',   name:'Microsoft Corporation' },
+    { ticker:'NFLX',   name:'Netflix, Inc.' },
+    { ticker:'NKE',   name:'NIKE, Inc.' },
+    { ticker:'NVDA',   name:'NVIDIA Corporation' },
+    { ticker:'ORCL',   name:'Oracle Corporation' },
+    { ticker:'PLTR',   name:'Palantir Technologies' },
+    { ticker:'QQQ',   name:'Invesco QQQ Trust' },
+    { ticker:'RBLX',   name:'Roblox Corporation' },
+    { ticker:'SHOP',   name:'Shopify Inc.' },
+    { ticker:'SLV',   name:'iShares Silver Trust' },
+    { ticker:'SNOW',   name:'Snowflake Inc.' },
+    { ticker:'SOFI',   name:'SoFi Technologies' },
+    { ticker:'SPY',   name:'SPDR S&P 500 ETF' },
+    { ticker:'TSLA',   name:'Tesla, Inc.' },
+    { ticker:'UBER',   name:'Uber Technologies' },
+    { ticker:'UNH',   name:'UnitedHealth Group' },
+    { ticker:'V',   name:'Visa Inc.' },
+    { ticker:'VOD.L',   name:'Vodafone Group Plc' },
+    { ticker:'WMT',   name:'Walmart Inc.' },
+    { ticker:'XLF',   name:'Financial Select SPDR ETF' },
+    { ticker:'XLK',   name:'Technology Select SPDR ETF' },
+    { ticker:'XOM',   name:'Exxon Mobil Corporation' },
+  ];
+
+  // Upcoming earnings dates (YYYY-MM-DD) — update these periodically
+  const EARNINGS_DATES = {
+    'AAPL':  ['2025-07-31','2025-10-30'],
+    'MSFT':  ['2025-07-30','2025-10-29'],
+    'NVDA':  ['2025-08-27','2025-11-19'],
+    'TSLA':  ['2025-07-23','2025-10-22'],
+    'AMZN':  ['2025-08-01','2025-10-31'],
+    'META':  ['2025-07-30','2025-10-29'],
+    'GOOGL': ['2025-07-29','2025-10-28'],
+    'AMD':   ['2025-07-29','2025-10-28'],
+    'NFLX':  ['2025-07-15','2025-10-14'],
+    'PLTR':  ['2025-08-04','2025-11-03'],
+    'CRM':   ['2025-08-27','2025-11-19'],
+    'ADBE':  ['2025-09-17','2025-12-17'],
+    'JPM':   ['2025-07-15','2025-10-14'],
+    'XOM':   ['2025-08-01','2025-10-31'],
+    'NKE':   ['2025-06-26','2025-09-25'],
+    'AVGO':  ['2025-09-03','2025-12-03'],
+    'UBER':  ['2025-08-06','2025-11-05'],
+    'SHOP':  ['2025-08-06','2025-11-05'],
+    'SNOW':  ['2025-08-27','2025-11-19'],
+    'GS':    ['2025-07-14','2025-10-13'],
+    'V':     ['2025-07-29','2025-10-28'],
+    'MA':    ['2025-07-30','2025-10-29'],
+    'LLY':   ['2025-08-06','2025-10-29'],
+    'UNH':   ['2025-07-15','2025-10-14'],
+    'COST':  ['2025-09-25','2025-12-10'],
+    'WMT':   ['2025-08-19','2025-11-18'],
+    'CAT':   ['2025-07-29','2025-10-28'],
+    'ORCL':  ['2025-09-10','2025-12-10'],
+    // New tickers
+    'INTC':  ['2025-07-24','2025-10-23'],
+    'QCOM':  ['2025-07-30','2025-10-29'],
+    'TXN':   ['2025-07-22','2025-10-21'],
+    'MU':    ['2025-09-24','2025-12-17'],
+    'AMAT':  ['2025-08-14','2025-11-13'],
+    'LRCX':  ['2025-07-23','2025-10-22'],
+    'KLAC':  ['2025-07-31','2025-10-30'],
+    'RBLX':  ['2025-08-06','2025-11-05'],
+    'SPOT':  ['2025-07-29','2025-10-28'],
+    'DASH':  ['2025-08-06','2025-11-05'],
+    'ABNB':  ['2025-08-05','2025-11-04'],
+    'DKNG':  ['2025-08-06','2025-11-05'],
+    'SOFI':  ['2025-07-29','2025-10-28'],
+    'MS':    ['2025-07-15','2025-10-14'],
+    'BAC':   ['2025-07-15','2025-10-14'],
+    'WFC':   ['2025-07-15','2025-10-14'],
+    'AXP':   ['2025-07-18','2025-10-17'],
+    'PYPL':  ['2025-07-29','2025-10-28'],
+    'XYZ':    ['2025-08-06','2025-11-05'],
+    'JNJ':   ['2025-07-15','2025-10-14'],
+    'MRK':   ['2025-07-29','2025-10-28'],
+    'ABBV':  ['2025-07-25','2025-10-24'],
+    'PFE':   ['2025-07-29','2025-10-28'],
+    'MRNA':  ['2025-08-06','2025-11-05'],
+    'REGN':  ['2025-08-05','2025-11-04'],
+    'ISRG':  ['2025-07-17','2025-10-16'],
+    'DXCM':  ['2025-07-31','2025-10-30'],
+    'MCD':   ['2025-07-25','2025-10-28'],
+    'SBUX':  ['2025-07-29','2025-10-28'],
+    'TGT':   ['2025-08-20','2025-11-19'],
+    'HD':    ['2025-08-19','2025-11-18'],
+    'LOW':   ['2025-08-20','2025-11-19'],
+    'CVX':   ['2025-08-01','2025-10-31'],
+    'COP':   ['2025-08-07','2025-11-06'],
+    'SLB':   ['2025-07-18','2025-10-17'],
+    'OXY':   ['2025-08-05','2025-11-04'],
+    'DE':    ['2025-08-15','2025-11-20'],
+    'GE':    ['2025-07-22','2025-10-21'],
+    'RTX':   ['2025-07-22','2025-10-21'],
+    'LMT':   ['2025-07-22','2025-10-21'],
+    'NOC':   ['2025-07-24','2025-10-23'],
+    'BA':    ['2025-07-23','2025-10-22'],
+  };
+
+  const MAX_RETRIES = 2;
+  const RETRY_BASE_MS = 1000;
+  const LOAD_DELAY_MS = 0;
+  const FETCH_TIMEOUT_MS = 180000;
+  const MAX_PROXY_ATTEMPTS = 3;
+  const CACHE_TTL_MS = 48 * 60 * 60 * 1000;
+  const BACKGROUND_BATCH_SIZE = 1;
+  const RESET_PAUSE_EVERY = 999;
+  const RESET_PAUSE_MS = 0;
+  const PRIORITY_TICKERS = ['SPY','QQQ'];
+
+  const PROXIES = [
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    url => `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`,
+    url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    url => `https://jsonp.afeld.me/?url=${encodeURIComponent(url)}`,
+    url => `https://api.crossorigin.me/${url}`,
+    url => `https://proxy.cors.sh/${url}`,
+    url => `https://yacdn.org/serve/${encodeURIComponent(url)}`,
+    url => `https://whateverorigin.org/get?url=${encodeURIComponent(url)}&callback=?`,
+  ];
+
+  function getStableProxyIndex(ticker, attempt=1) {
+    const pool = Math.min(PROXIES.length, MAX_PROXY_ATTEMPTS);
+    let seed = 0;
+    const s = String(ticker || '');
+    for (let i = 0; i < s.length; i++) seed += s.charCodeAt(i);
+    return (seed + (attempt - 1)) % pool;
+  }
+
+  // ── T212 TRADING COSTS ───────────────────────────────
+  // T212 ISA charges 0.15% FX fee each way on USD stocks (GBP account).
+  // Bid/ask spreads vary by stock liquidity tier. Values below are typical
+  // observed spreads as a % of mid-price during regular US market hours.
+  // Round-trip cost = (spread) + (0.15% × 2 FX) = spread + 0.30%
+  const T212_FX_ROUNDTRIP = 0.30; // % — fixed for all US stocks in GBP ISA
+
+  const SPREAD_TABLE = {
+    // Mega-cap / ultra-liquid — effectively zero spread
+    'AAPL':0.01,'MSFT':0.01,'NVDA':0.01,'AMZN':0.01,'META':0.01,
+    'GOOGL':0.01,'TSLA':0.02,'AVGO':0.02,'AMD':0.02,'NFLX':0.02,
+    'SPY':0.01,'QQQ':0.01,'V':0.01,'MA':0.01,'JPM':0.01,
+    'WMT':0.01,'COST':0.01,'HD':0.01,'MCD':0.01,'JNJ':0.01,
+    // Large-cap — very tight
+    'ORCL':0.02,'CRM':0.02,'ADBE':0.02,'INTC':0.02,'QCOM':0.02,
+    'TXN':0.02,'GS':0.02,'MS':0.02,'BAC':0.02,'WFC':0.02,
+    'AXP':0.02,'XOM':0.02,'CVX':0.02,'LMT':0.02,'RTX':0.02,
+    'UNH':0.02,'LLY':0.02,'ABBV':0.02,'MRK':0.02,'PFE':0.02,
+    'SBUX':0.02,'NKE':0.02,'LOW':0.02,'TGT':0.02,'CAT':0.02,
+    'DE':0.02,'GE':0.02,'NOC':0.02,'BA':0.02,'ISRG':0.02,
+    'REGN':0.03,'IWM':0.01,'GLD':0.01,'SLV':0.02,
+    'XLK':0.01,'XLF':0.01,'XLE':0.02,'XLV':0.02,'XLI':0.02,
+    // Mid-cap / moderate liquidity
+    'PLTR':0.03,'UBER':0.02,'SHOP':0.03,'SNOW':0.04,'APP':0.03,
+    'RBLX':0.04,'SPOT':0.03,'DASH':0.04,'ABNB':0.03,'DKNG':0.05,
+    'SOFI':0.05,'PYPL':0.03,'XYZ':0.04,'HOOD':0.05,
+    'MU':0.02,'AMAT':0.02,'LRCX':0.03,'KLAC':0.03,
+    'DXCM':0.04,'COP':0.02,'SLB':0.03,'OXY':0.03,
+    'ARKK':0.03,
+  };
+
+  // Returns total round-trip trading cost as a % of trade value
+  function getTotalCostPct(ticker) {
+    const spread = SPREAD_TABLE[ticker?.toUpperCase()] ?? 0.05; // default 0.05% if unknown
+    return spread + T212_FX_ROUNDTRIP; // spread + 0.30% FX both ways
+  }
+
+
+  function getTargetFloorGrossPct(entry, atrPct, ticker) {
+    const costPct = getTotalCostPct(ticker);
+    const atrFloor = Math.max(0, (atrPct || 0) * 1.25);
+    const minNetFloor = costPct + 1.0;
+    return Math.max(atrFloor, minNetFloor);
+  }
+
+  function getTradeSortBucket(label) {
+    if (label === 'TAKE TRADE') return 0;
+    if (label === 'BORDERLINE') return 1;
+    if (label === 'SKIP TRADE') return 2;
+    return 3;
+  }
+
+  function getBuyQualityBucket(label) {
+    if (label === 'GOOD BUY') return 0;
+    if (label === 'BUYABLE') return 1;
+    if (label === 'NOT READY') return 2;
+    if (label === 'AVOID LONG') return 3;
+    return 4;
+  }
+
+  const tickerState = {};
+  let preloadRunning = false;
+  let chart, candleSeries, volumeSeries;
+  let currentFullData = [];
+  let currentMarkers = [];
+  let currentViewDays = 30;
+
+  // ── HELPERS ──────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const setStatus = (msg, err=false) => {
+    $('status').textContent = msg;
+    $('status').style.color = err ? '#ff4d6a' : '#7a9ab8';
+  };
+
+  function getAccount(){ const v=Number($('accountSize').value); return v>0?v:200; }
+
+  function fp(v) {
+    if (v==null||isNaN(v)) return '—';
+    return Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  function getNetProfit3dForDisplay(ticker, profit3d) {
+    if (profit3d == null || !isFinite(profit3d)) return profit3d;
+    const t = String(ticker || '').toUpperCase();
+    // UK listed shares usually incur 0.5% SDRT/stamp duty on the buy side.
+    // Apply it only to displayed/ranked net profit, not to fetch/signal logic.
+    if (t.endsWith('.L')) return profit3d - 0.5;
+    return profit3d;
+  }
+
+  function fm(v) {
+    if (v==null||isNaN(v)) return '—';
+    return '£'+Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  function fpct(v) {
+    if (v==null||isNaN(v)) return '—';
+    return `${Number(v).toFixed(2)}%`;
+  }
+  function fdate(s) {
+    if (!s) return '—';
+    return new Date(s+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  }
+  function fvol(v) {
+    if (v==null||isNaN(v)) return '—';
+    if (v>=1e9) return (v/1e9).toFixed(2)+'B';
+    if (v>=1e6) return (v/1e6).toFixed(1)+'M';
+    if (v>=1e3) return (v/1e3).toFixed(0)+'K';
+    return String(v);
+  }
+  function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+  function getCacheKey(ticker) { return `tradeengine_cache_${ticker.toUpperCase()}`; }
+  function readTickerCache(ticker) {
+    try {
+      const raw = localStorage.getItem(getCacheKey(ticker));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.ts || !Array.isArray(parsed?.data)) return null;
+      if (Date.now() - parsed.ts > CACHE_TTL_MS) return null;
+      return parsed.data;
+    } catch { return null; }
+  }
+  function writeTickerCache(ticker, data) {
+    try {
+      localStorage.setItem(getCacheKey(ticker), JSON.stringify({ ts: Date.now(), data }));
+    } catch {}
+  }
+  let renderQueued = false;
+  let pendingDirectoryFilter = '';
+  function scheduleDirectoryRender(filter = $('directorySearch')?.value || '') {
+    pendingDirectoryFilter = filter;
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => {
+      renderQueued = false;
+      renderDirectory(pendingDirectoryFilter);
+    });
+  }
+
+  // ── INDICATORS ───────────────────────────────────────
+  function sma(values, period) {
+    const out = new Array(values.length).fill(null);
+    let sum = 0;
+    for (let i=0;i<values.length;i++) {
+      sum += values[i];
+      if (i>=period) sum -= values[i-period];
+      if (i>=period-1) out[i] = sum/period;
+    }
+    return out;
+  }
+
+  function rsi(values, period=14) {
+    const out = new Array(values.length).fill(null);
+    if (values.length<=period) return out;
+    let gainSum=0, lossSum=0;
+    for (let i=1;i<=period;i++) {
+      const c=values[i]-values[i-1];
+      if (c>=0) gainSum+=c; else lossSum+=Math.abs(c);
+    }
+    let ag=gainSum/period, al=lossSum/period;
+    out[period] = al===0?100:100-(100/(1+ag/al));
+    for (let i=period+1;i<values.length;i++) {
+      const c=values[i]-values[i-1];
+      const g=c>0?c:0, l=c<0?Math.abs(c):0;
+      ag=((ag*(period-1))+g)/period;
+      al=((al*(period-1))+l)/period;
+      out[i] = al===0?100:100-(100/(1+ag/al));
+    }
+    return out;
+  }
+
+  // ── VERCEL PROXY URL ────────────────────────────────
+  // UPDATE THIS with your Vercel deployment URL
+  const VERCEL_API_URL = 'https://trade-engine-api.vercel.app/api/yahoo';
+  // Example: https://trade-engine-api-xyz789.vercel.app/api/yahoo
+  // After deploying to Vercel, replace the URL above with your actual deployment URL
+  
+  // ── FETCH ─────────────────────────────────────────────
+  async function fetchYahooData(ticker, proxyIndex=0) {
+    const clean = ticker.trim().toUpperCase();
+    
+    // Try Vercel serverless proxy first (much better rate limits)
+    console.log(`[FETCH] ${ticker}: Trying Vercel proxy...`);
+    try {
+      const vercelUrl = `${VERCEL_API_URL}?ticker=${encodeURIComponent(clean)}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      
+      const res = await fetch(vercelUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      clearTimeout(timeoutId);
+      
+      if (res.ok) {
+        console.log(`[FETCH] ${ticker}: Vercel proxy SUCCESS`);
+        const json = await res.json();
+        return parseYahooData(json, ticker);
+      } else {
+        console.log(`[FETCH] ${ticker}: Vercel proxy HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.log(`[FETCH] ${ticker}: Vercel proxy failed (${e.message})`);
+    }
+    
+    // Fallback to direct Yahoo (in case Vercel not set up yet)
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(clean)}?range=10y&interval=1d&includePrePost=false`;
+    
+    console.log(`[FETCH] ${ticker}: Trying Yahoo direct fallback...`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(yahooUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
+        }
+      });
+      clearTimeout(timeoutId);
+      
+      if (res.ok) {
+        console.log(`[FETCH] ${ticker}: Yahoo direct SUCCESS`);
+        const json = await res.json();
+        return parseYahooData(json, ticker);
+      } else {
+        console.log(`[FETCH] ${ticker}: Yahoo direct HTTP ${res.status}`);
+      }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      console.log(`[FETCH] ${ticker}: Yahoo direct failed (${e.message})`);
+    }
+    
+    throw new Error('All sources failed');
+  }
+
+  function parseYahooData(json, ticker) {
+    const result = json?.chart?.result?.[0];
+    const error  = json?.chart?.error;
+    if (error) throw new Error(error.description||'Yahoo error');
+    if (!result?.timestamp||!result?.indicators?.quote?.[0]) throw new Error('No chart data');
+
+    const ts    = result.timestamp;
+    const quote = result.indicators.quote[0];
+    const data  = [];
+
+    let prevClose = null;
+    for (let i=0;i<ts.length;i++) {
+      const o=quote.open?.[i], h=quote.high?.[i],
+            l=quote.low?.[i],  c=quote.close?.[i], v=quote.volume?.[i];
+
+      // Require at least a valid close to keep the row
+      if (c==null || isNaN(c)) continue;
+
+      let open = (o!=null && !isNaN(o)) ? Number(o) : (prevClose!=null ? prevClose : Number(c));
+      let high = (h!=null && !isNaN(h)) ? Number(h) : Math.max(open, Number(c));
+      let low  = (l!=null && !isNaN(l)) ? Number(l) : Math.min(open, Number(c));
+      let close = Number(c);
+      let volume = (v!=null && !isNaN(v)) ? Number(v) : 0;
+
+      data.push({
+        time:  new Date(ts[i]*1000).toISOString().slice(0,10),
+        open, high, low, close, volume
+      });
+
+      prevClose = close;
+    }
+    if (data.length < 20) throw new Error('Insufficient data');
+    return data;
+  }
+
+  function parseAlphaVantageData(json, ticker) {
+    const ts = json['Time Series (Daily)'];
+    if (!ts || typeof ts !== 'object') throw new Error('No Alpha Vantage data');
+    
+    const dates = Object.keys(ts).sort().reverse(); // newest first
+    if (dates.length < 20) throw new Error('Insufficient Alpha Vantage data');
+    
+    const data = [];
+    for (const date of dates) {
+      const d = ts[date];
+      const open = parseFloat(d['1. open']);
+      const high = parseFloat(d['2. high']);
+      const low = parseFloat(d['3. low']);
+      const close = parseFloat(d['4. close']);
+      const volume = parseInt(d['5. volume']) || 0;
+      
+      if (!isNaN(close)) {
+        data.push({ time: date, open, high, low, close, volume });
+      }
+    }
+    
+    data.reverse(); // oldest first for consistency
+    if (data.length < 20) throw new Error('Insufficient Alpha Vantage data after parse');
+    return data;
+  }
+
+  function parseGoogleFinanceHTML(html, ticker) {
+    // Finnhub parser - returns recent quote data
+    // Note: Finnhub quote API only gives current price, not historical
+    // This won't work for historical data, so fallback to Yahoo
+    return null;
+  }
+
+  function parseFinnhubData(json, ticker) {
+    // Finnhub quote endpoint only returns current price, not historical
+    // So we can't use it for historical data
+    // Return null to fall back to Yahoo
+    return null;
+  }
+
+
+  async function fetchWithFallback(ticker, attempt=1, useCache=true) {
+    if (attempt === 1 && useCache) {
+      const cached = readTickerCache(ticker);
+      if (cached) return cached;
+    }
+    const proxyIndex = getStableProxyIndex(ticker, attempt);
+    try {
+      const data = await fetchYahooData(ticker, proxyIndex);
+      writeTickerCache(ticker, data);
+      return data;
+    } catch(e) {
+      if (attempt < MAX_RETRIES) {
+        await sleep(RETRY_BASE_MS * Math.pow(1.8, attempt-1));
+        return fetchWithFallback(ticker, attempt+1, false);
+      }
+      throw e;
+    }
+  }
+
+  // ── SIGNAL BUILD ────────────────────────────────────
+  function ema(values, period) {
+    const out = new Array(values.length).fill(null);
+    const k = 2 / (period + 1);
+    let started = false;
+    let prev = 0;
+    for (let i = 0; i < values.length; i++) {
+      if (!started) {
+        // seed with first non-null SMA
+        if (i >= period - 1) {
+          let s = 0;
+          for (let j = i - period + 1; j <= i; j++) s += values[j];
+          prev = s / period;
+          out[i] = prev;
+          started = true;
+        }
+      } else {
+        prev = values[i] * k + prev * (1 - k);
+        out[i] = prev;
+      }
+    }
+    return out;
+  }
+
+  function macdLine(closes) {
+    const ema12 = ema(closes, 12);
+    const ema26 = ema(closes, 26);
+    const macd  = closes.map((_,i) => ema12[i]!=null && ema26[i]!=null ? ema12[i]-ema26[i] : null);
+    const validMacd = macd.map(v => v ?? 0);
+    const signal = ema(validMacd, 9);
+    const hist   = macd.map((v,i) => v!=null && signal[i]!=null ? v - signal[i] : null);
+    return { macd, signal, hist };
+  }
+
+  function calcRelativeStrength20(ticker, data) {
+    try {
+      if (!ticker || ticker === 'SPY') return 0;
+      const spyData = readTickerCache('SPY');
+      if (!spyData || spyData.length < 25 || !data || data.length < 25) return null;
+
+      const len = Math.min(spyData.length, data.length);
+      const stockNow = data[data.length - 1]?.close;
+      const stockPrev = data[data.length - 21]?.close;
+      const spyNow = spyData[spyData.length - 1]?.close;
+      const spyPrev = spyData[spyData.length - 21]?.close;
+
+      if ([stockNow, stockPrev, spyNow, spyPrev].some(v => v == null || isNaN(v) || v <= 0)) return null;
+
+      const stockRet = ((stockNow / stockPrev) - 1) * 100;
+      const spyRet = ((spyNow / spyPrev) - 1) * 100;
+      return stockRet - spyRet;
+    } catch {
+      return null;
+    }
+  }
+
+  function buildSignalSet(data) {
+    const closes  = data.map(d=>d.close);
+    const volumes = data.map(d=>d.volume);
+    // Use 20/50 MA crossover — much more responsive than 50/200 for swing trades
+    const ma20    = sma(closes, 20);
+    const ma50    = sma(closes, 50);
+    const ma200   = sma(closes, 200);  // keep for long-term bias context
+    const ma5     = sma(closes, 5);
+    const ma20vol = sma(volumes, 20);
+    const rsi14   = rsi(closes, 14);
+    const { hist: macdHist } = macdLine(closes);
+
+    const markers=[], signals=[], allEvents=[];
+    let currentState='No signal', currentSub='Not enough data';
+    let longBias = 'Neutral'; // from 50/200
+
+    for (let i=1;i<data.length;i++) {
+      // Long-term bias: 50 vs 200 (for context, not crossover signals)
+      if (ma50[i]!=null && ma200[i]!=null) {
+        longBias = ma50[i]>ma200[i] ? 'Buy bias' : ma50[i]<ma200[i] ? 'Sell bias' : 'Neutral';
+      }
+
+      if (ma20[i]==null||ma50[i]==null||ma20[i-1]==null||ma50[i-1]==null) continue;
+      const prev=ma20[i-1]-ma50[i-1], curr=ma20[i]-ma50[i];
+      const spreadPct = ma50[i]!==0?((ma20[i]-ma50[i])/ma50[i])*100:null;
+
+      currentState = longBias;
+      currentSub   = ma50[i]>ma200[i]?'50D above 200D':ma50[i]<ma200[i]?'50D below 200D':'50D = 200D';
+
+      const isBuy  = prev<=0 && curr>0;
+      const isSell = prev>=0 && curr<0;
+
+      if (isBuy) {
+        markers.push({time:data[i].time,position:'belowBar',color:'#00d4ff',shape:'arrowUp',text:`BUY ${fp(data[i].close)}`});
+        signals.push({type:'BUY',date:data[i].time,price:data[i].close,index:i});
+        allEvents.push({type:'BUY',cls:'cls-buy',date:data[i].time,price:data[i].close,index:i});
+        continue;
+      }
+      if (isSell) {
+        markers.push({time:data[i].time,position:'aboveBar',color:'#ff8c00',shape:'arrowDown',text:`SELL ${fp(data[i].close)}`});
+        signals.push({type:'SELL',date:data[i].time,price:data[i].close,index:i});
+        allEvents.push({type:'SELL',cls:'cls-sell',date:data[i].time,price:data[i].close,index:i});
+        continue;
+      }
+      if (spreadPct==null) continue;
+      if (spreadPct<0&&Math.abs(spreadPct)<=1.5&&curr>prev) {
+        markers.push({time:data[i].time,position:'belowBar',color:'#5ecfee',shape:'circle',text:'strength'});
+        allEvents.push({type:'SHORT-TERM STRENGTH',cls:'cls-leadbuy',date:data[i].time,price:data[i].close,index:i});
+      }
+      if (spreadPct>0&&Math.abs(spreadPct)<=1.5&&curr<prev) {
+        markers.push({time:data[i].time,position:'aboveBar',color:'#e8a050',shape:'circle',text:'weakness'});
+        allEvents.push({type:'SHORT-TERM WEAKNESS',cls:'cls-leadsell',date:data[i].time,price:data[i].close,index:i});
+      }
+    }
+    return { markers, signals, allEvents, currentState, currentSub, ma5, ma20, ma50, ma200, rsi14, ma20vol, macdHist };
+  }
+
+  // ── DECISION ENGINE ──────────────────────────────────
+  // ATR calculation
+  function atr(data, period=14) {
+    const out = new Array(data.length).fill(null);
+    if (data.length < period + 1) return out;
+    let atrVal = 0;
+    for (let i = 1; i <= period; i++) {
+      const tr = Math.max(
+        data[i].high - data[i].low,
+        Math.abs(data[i].high - data[i-1].close),
+        Math.abs(data[i].low  - data[i-1].close)
+      );
+      atrVal += tr;
+    }
+    atrVal /= period;
+    out[period] = atrVal;
+    for (let i = period + 1; i < data.length; i++) {
+      const tr = Math.max(
+        data[i].high - data[i].low,
+        Math.abs(data[i].high - data[i-1].close),
+        Math.abs(data[i].low  - data[i-1].close)
+      );
+      atrVal = (atrVal * (period - 1) + tr) / period;
+      out[i] = atrVal;
+    }
+    return out;
+  }
+
+  // ── MARKET REGIME STATE ─────────────────────────────
+  // Populated when SPY/QQQ loads; used to gate BUY NOW signals
+  const marketRegime = { spyBullish: null, qqqBullish: null, vixProxy: null };
+
+  // ── BACKTESTED HIT RATE ──────────────────────────────
+  // Walk 10 years of price history finding all past bars where the SAME signal
+  // conditions existed, then measure what % hit the target within N days.
+  // Tighter matching = more reliable hit rates.
+  function backtestHitRate(data, targetPct, days, signalConditions) {
+    const { requireBullBias, requireMacdPositive, requireAboveMA20, minRsi, maxRsi,
+            requireVolConfirm, macdHistMin, macdHistMax } = signalConditions;
+    const closes  = data.map(d => d.close);
+    const volumes = data.map(d => d.volume);
+    const ma20arr = sma(closes, 20);
+    const ma50arr = sma(closes, 50);
+    const ma200arr= sma(closes, 200);
+    const rsi14arr= rsi(closes, 14);
+    const ma20vol = sma(volumes, 20);
+    const { hist: macdHistArr } = macdLine(closes);
+
+    let hits = 0, trials = 0;
+    let totalGap = 0, gapCount = 0;
+    const lookback = Math.min(data.length - days - 1, data.length - 1);
+
+    for (let i = 60; i < lookback; i++) {
+      const bullBias    = ma50arr[i] != null && ma200arr[i] != null && ma50arr[i] > ma200arr[i];
+      const aboveMA20   = ma20arr[i] != null && closes[i] >= ma20arr[i];
+      const rsiNow      = rsi14arr[i];
+      const macdNow     = macdHistArr[i];
+      const macdPrev    = macdHistArr[i-1];
+      const macdPos     = macdNow != null && macdNow > 0;
+      const macdExp     = macdNow != null && macdPrev != null && macdNow > macdPrev;
+      const volRatioNow = ma20vol[i] > 0 ? volumes[i] / ma20vol[i] : 1;
+
+      // Tighter RSI band: ±6 instead of ±12
+      if (requireBullBias && !bullBias) continue;
+      if (requireMacdPositive && !macdPos) continue;
+      if (requireAboveMA20 && !aboveMA20) continue;
+      if (rsiNow == null || rsiNow < minRsi || rsiNow > maxRsi) continue;
+
+      // MACD histogram magnitude filter: must be in similar range (not just direction)
+      if (macdHistMin != null && macdNow != null && macdNow < macdHistMin) continue;
+      if (macdHistMax != null && macdNow != null && macdNow > macdHistMax) continue;
+
+      // Volume confirmation: if required, only count bars with above-average volume
+      if (requireVolConfirm && volRatioNow < 1.0) continue;
+
+      trials++;
+
+      // Measure overnight gap for this bar (open vs prev close)
+      if (i > 0) {
+        const gap = Math.abs(data[i].open - data[i-1].close) / data[i-1].close;
+        totalGap += gap;
+        gapCount++;
+      }
+
+      const entryPrice = closes[i];
+      const targetPrice = entryPrice * (1 + targetPct / 100);
+      let hit = false;
+      for (let j = i + 1; j <= Math.min(i + days, data.length - 1); j++) {
+        if (data[j].high >= targetPrice) { hit = true; break; }
+      }
+      if (hit) hits++;
+    }
+
+    if (trials < 20) return null; // need at least 20 matches for reliability
+
+    const rawRate = (hits / trials) * 100;
+
+    // Overnight gap penalty: each day held crosses one overnight gap.
+    // Historical average gap for this ticker reduces confidence on multi-day holds.
+    const avgGapPct = gapCount > 0 ? (totalGap / gapCount) * 100 : 0;
+    // Each overnight gap reduces probability slightly (gaps can go against you)
+    const gapPenalty = Math.min(8, days * avgGapPct * 0.4);
+
+    return Math.max(5, Math.round(rawRate - gapPenalty));
+  }
+
+  // ATR percentile: where does current ATR sit vs its own 252-day history?
+  function atrPercentile(atrArr, currentIdx) {
+    const window = atrArr.slice(Math.max(0, currentIdx - 252), currentIdx).filter(v => v != null);
+    if (window.length < 20) return 50;
+    const current = atrArr[currentIdx];
+    if (current == null) return 50;
+    const below = window.filter(v => v <= current).length;
+    return Math.round((below / window.length) * 100);
+  }
+
+  // Estimate probability — backtested hit rate primary, improved model fallback
+  function estimateProbability(entry, sellPrice, days, dailyAtrPct, buyScore, sellScore, data, signalConditions) {
+    if (!entry || !sellPrice || sellPrice <= entry) return 0;
+    const targetPct = ((sellPrice - entry) / entry) * 100;
+
+    // Primary: backtested hit rate
+    if (data && signalConditions) {
+      const backtested = backtestHitRate(data, targetPct, days, signalConditions);
+      if (backtested !== null) {
+        const netScore = buyScore - sellScore;
+        const adj = Math.max(-3, Math.min(3, netScore * 0.2));
+        return Math.max(5, Math.min(92, backtested + Math.round(adj)));
+      }
+    }
+
+    // Fallback: vol-regime adjusted drift model
+    // ATR/1.25 converts to daily σ; inflate by vol-regime factor for fat tails
+    const atrPctile = data ? atrPercentile(atr(data,14), data.length-1) : 50;
+    const fatTailFactor = atrPctile > 70 ? 1.0 + (atrPctile - 70) * 0.015 : 1.0;
+    const dailyVol = (dailyAtrPct / 1.25) * fatTailFactor / 100;
+    const netScore = buyScore - sellScore;
+    const dailyDrift = 0.0004 + (netScore * 0.00012); // slightly more conservative
+    const expectedMove = dailyDrift * days;
+    const totalVol = dailyVol * Math.sqrt(days);
+    const target = targetPct / 100;
+    if (totalVol === 0) return target <= expectedMove ? 82 : 18;
+
+    function normcdf(z) {
+      if (z < -6) return 0; if (z > 6) return 1;
+      const b = [0.2316419, 0.319381530, -0.356563782, 1.781477937, -1.821255978, 1.330274429];
+      const t = 1 / (1 + b[0] * Math.abs(z));
+      const poly = t*(b[1]+t*(b[2]+t*(b[3]+t*(b[4]+t*b[5]))));
+      const pdf = Math.exp(-0.5*z*z)/Math.sqrt(2*Math.PI);
+      const p = 1 - pdf * poly;
+      return z >= 0 ? p : 1 - p;
+    }
+
+    const z = (target - expectedMove) / totalVol;
+    const pHit = Math.max(5, Math.min(90, Math.round((1 - normcdf(z)) * 175)));
+    return pHit;
+  }
+
+
+  function findRecentSwingLow(data, lookback = 15) {
+    if (!Array.isArray(data) || data.length < 3) return null;
+    const end = data.length - 2;
+    const start = Math.max(1, data.length - lookback - 1);
+    for (let i = end; i >= start; i--) {
+      const prev = data[i - 1];
+      const cur  = data[i];
+      const next = data[i + 1];
+      if (!prev || !cur || !next) continue;
+      if (cur.low <= prev.low && cur.low <= next.low) {
+        return { price: cur.low, time: cur.time, index: i, method: 'pivot' };
+      }
+    }
+    const window = data.slice(Math.max(0, data.length - Math.max(lookback, 8) - 1), data.length - 1);
+    if (!window.length) return null;
+    let minBar = window[0];
+    for (const bar of window) {
+      if (bar.low < minBar.low) minBar = bar;
+    }
+    return minBar ? { price: minBar.low, time: minBar.time, index: data.indexOf(minBar), method: 'window-low' } : null;
+  }
+
+  function calcSuggestedStop(entry, atrValue, data) {
+    if (!entry || !atrValue || !isFinite(entry) || !isFinite(atrValue) || atrValue <= 0) {
+      return null;
+    }
+    const swing = findRecentSwingLow(data, 15);
+    const buffer = Math.max(atrValue * 0.25, entry * 0.003);
+    const atrStop = entry - (1.75 * atrValue);
+    const structureStop = swing ? swing.price - buffer : null;
+    const finalStop = structureStop != null ? Math.min(atrStop, structureStop) : atrStop;
+    const riskPct = ((entry - finalStop) / entry) * 100;
+    const riskAtr = atrValue > 0 ? (entry - finalStop) / atrValue : null;
+    return {
+      swingLow: swing?.price ?? null,
+      swingTime: swing?.time ?? null,
+      swingMethod: swing?.method ?? null,
+      buffer,
+      atrStop,
+      structureStop,
+      finalStop,
+      riskPct,
+      riskAtr
+    };
+  }
+
+  function buildDecision(data, signals, allEvents, currentState, ma5, ma20, ma50, ma200, rsi14, ma20vol, macdHist, ticker) {
+    if (!data.length) return { action:'WAIT', confidence:'—', reason:'No data.', rankScore:0, analysis:{} };
+
+    const li   = data.length-1;
+    const last = data[li], prev = data[li-1]||last;
+    const lastRsi = rsi14?.[li];
+    const lastVol = last.volume;
+    const avgVol  = ma20vol?.[li];
+    const volRatio = (avgVol&&avgVol>0) ? lastVol/avgVol : null;
+
+    const atr14 = atr(data, 14);
+    const atrNow = atr14[li];
+    const atrPct = atrNow && last.close > 0 ? (atrNow / last.close) * 100 : 1;
+    const atrPctile = atrPercentile(atr14, li); // 0-100: where current vol sits historically
+
+    // 52-week high/low
+    const window52 = data.slice(Math.max(0, li - 252));
+    const hi52 = Math.max(...window52.map(d=>d.high));
+    const lo52 = Math.min(...window52.map(d=>d.low));
+    const pctFrom52Hi = ((last.close - hi52) / hi52) * 100;
+    const pctFrom52Lo = ((last.close - lo52) / lo52) * 100;
+
+    // MACD
+    const macdNow  = macdHist?.[li];
+    const macdPrev = macdHist?.[li-1];
+    const macdExpanding   = macdNow!=null && macdPrev!=null && macdNow > macdPrev;
+    const macdContracting = macdNow!=null && macdPrev!=null && macdNow < macdPrev;
+    const macdPositive    = macdNow != null && macdNow > 0;
+
+    const recent  = s => s.filter(x=>x.index>=li-10);
+    const rSig    = recent(signals);
+    const rEv     = recent(allEvents);
+
+    const hasRecentBuy  = rSig.some(s=>s.type==='BUY');
+    const hasRecentSell = rSig.some(s=>s.type==='SELL');
+    const hasStrength   = rEv.some(e=>e.type==='SHORT-TERM STRENGTH');
+    const hasWeakness   = rEv.some(e=>e.type==='SHORT-TERM WEAKNESS');
+
+    const priceUp    = last.close>prev.close;
+    const priceDown  = last.close<prev.close;
+    const aboveMA5   = ma5[li]!=null&&last.close>=ma5[li];
+    const belowMA5   = ma5[li]!=null&&last.close<=ma5[li];
+    const aboveMA20  = ma20[li]!=null&&last.close>=ma20[li];
+    const aboveMA50  = ma50[li]!=null&&last.close>=ma50[li];
+    const priceUp3   = li>=3&&last.close>data[li-3].close;
+    const priceDown3 = li>=3&&last.close<data[li-3].close;
+    const highVol    = volRatio!=null&&volRatio>=1.3;
+    const mom3d = li>=3 ? ((last.close - data[li-3].close)/data[li-3].close)*100 : 0;
+
+    // ── MARKET REGIME CONTEXT ─────────────────────────────
+    // If SPY is in bear regime (50D below 200D), buying individual stocks is higher risk.
+    // Downgrade signals but don't block entirely — some stocks trend against the market.
+    const spyBearish = marketRegime.spyBullish === false;
+    const qqqBearish = marketRegime.qqqBullish === false;
+    const bearMarket = spyBearish && qqqBearish; // both weak = true bear regime
+
+    let buyScore=0, sellScore=0;
+    const buyR=[], sellR=[];
+
+    // Long-term bias (50/200)
+    if (currentState==='Buy bias')  { buyScore+=2; buyR.push('long-term bias bullish'); }
+    if (currentState==='Sell bias') { sellScore+=2; sellR.push('long-term bias bearish'); }
+
+    // MA crossover signals (20/50)
+    if (hasRecentBuy)  { buyScore+=3;  buyR.push('20/50 buy crossover'); }
+    if (hasRecentSell) { sellScore+=3; sellR.push('20/50 sell crossover'); }
+    if (hasStrength)   { buyScore+=2;  buyR.push('short-term strength'); }
+    if (hasWeakness)   { sellScore+=2; sellR.push('short-term weakness'); }
+
+    // Price above key MAs (confluence filter)
+    if (aboveMA20) { buyScore+=1; buyR.push('above 20D avg'); }
+    if (aboveMA50) { buyScore+=1; buyR.push('above 50D avg'); }
+
+    // MACD
+    if (macdPositive && macdExpanding)        { buyScore+=3;  buyR.push('MACD expanding positive'); }
+    else if (macdPositive)                    { buyScore+=1;  buyR.push('MACD positive'); }
+    else if (!macdPositive && macdContracting){ sellScore+=2; sellR.push('MACD contracting negative'); }
+    else if (!macdPositive)                   { sellScore+=1; sellR.push('MACD negative'); }
+
+    // Price action
+    if (priceUp)   { buyScore+=1;  buyR.push('price up today'); }
+    if (priceDown) { sellScore+=1; sellR.push('price down today'); }
+    if (aboveMA5)  { buyScore+=1;  buyR.push('above 5D avg'); }
+    if (belowMA5)  { sellScore+=1; sellR.push('below 5D avg'); }
+    if (priceUp3)  { buyScore+=1;  buyR.push('positive 3D momentum'); }
+    if (priceDown3){ sellScore+=1; sellR.push('negative 3D momentum'); }
+
+    // Volume confirmation
+    if (highVol && priceUp)   { buyScore+=2;  buyR.push(`strong volume (${volRatio.toFixed(1)}x)`); }
+    if (highVol && priceDown) { sellScore+=2; sellR.push(`strong volume (${volRatio.toFixed(1)}x)`); }
+
+    // RSI
+    if (lastRsi!=null) {
+      if (lastRsi>=50&&lastRsi<68)      { buyScore+=2;  buyR.push(`RSI bullish ${lastRsi.toFixed(0)}`); }
+      else if (lastRsi>=40&&lastRsi<50) { buyScore+=1;  buyR.push(`RSI improving ${lastRsi.toFixed(0)}`); }
+      else if (lastRsi>=68)             { buyScore-=2;  buyR.push(`RSI overbought ${lastRsi.toFixed(0)}`); }
+      if (lastRsi<=50&&lastRsi>32)      { sellScore+=1; sellR.push(`RSI weakening ${lastRsi.toFixed(0)}`); }
+      else if (lastRsi<=32)             { sellScore+=2; sellR.push(`RSI oversold ${lastRsi.toFixed(0)}`); }
+    }
+
+    // 52W position
+    if (pctFrom52Hi > -5)  { sellScore+=1; sellR.push('near 52W high'); }
+    if (pctFrom52Lo < 15)  { buyScore+=1;  buyR.push('recovering from 52W low'); }
+
+    // High volatility percentile = wider, less reliable swings
+    if (atrPctile > 80) { buyScore = Math.max(0, buyScore - 1); buyR.push('elevated volatility'); }
+
+    // Market regime penalty (softened - strong individual setups can still surface)
+    if (bearMarket) {
+      buyScore = Math.max(0, buyScore - 1);
+      buyR.push('bear market regime');
+    } else if (spyBearish) {
+      buyScore = Math.max(0, buyScore - 1);
+      buyR.push('SPY downtrend');
+    }
+
+    // Earnings penalty
+    const earningsNear = !!checkEarnings(ticker || '');
+    if (earningsNear) { buyScore = Math.max(0, buyScore - 2); buyR.push('earnings risk nearby'); }
+
+    let rankScore = 0;
+    rankScore += buyScore * 10;
+    if (priceUp3)  rankScore += 8;
+    if (priceUp)   rankScore += 5;
+    if (hasStrength) rankScore += 6;
+    if (hasRecentBuy) rankScore += 7;
+    if (highVol && priceUp) rankScore += 5;
+    if (macdPositive && macdExpanding) rankScore += 8;
+    if (aboveMA50) rankScore += 4;
+    if (lastRsi!=null&&lastRsi>=52&&lastRsi<=64) rankScore += 6;
+    if (lastRsi!=null&&lastRsi>64) rankScore -= 3;
+    if (bearMarket) rankScore -= 10;
+    else if (spyBearish) rankScore -= 5;
+    if (earningsNear) rankScore -= 15;
+
+    const buildPositionSignal = () => {
+      if (priceDown && belowMA5 && hasWeakness) return { signal:'EXIT EARLY', sub:'Momentum has rolled over: price is down, below 5D average, and showing short-term weakness.' };
+      if (hasWeakness || (lastRsi != null && lastRsi >= 67)) return { signal:'HOLD TIGHT', sub:'Trend is still intact, but short-term weakness or stretched RSI means monitor closely.' };
+      if (priceUp && aboveMA5 && priceUp3) return { signal:'HOLD', sub:'Momentum is supportive; stay open while price remains above the short-term average.' };
+      return { signal:'HOLD / WATCH', sub:'Still valid — watch next 1–2 candles closely.' };
+    };
+
+    // Signal conditions — tighter matching improves backtest reliability
+    // Compute MACD histogram bounds: ±20% of the recent 20-bar range
+    const macdWindow = macdHist ? macdHist.slice(Math.max(0, li - 20), li).filter(v => v != null) : [];
+    const macdWinMin = macdWindow.length ? Math.min(...macdWindow) : null;
+    const macdWinMax = macdWindow.length ? Math.max(...macdWindow) : null;
+    const macdHistMin = macdWinMin != null && macdNow != null ? macdWinMin - Math.abs(macdWinMin) * 0.5 : null;
+    const macdHistMax = macdWinMax != null && macdNow != null ? macdWinMax + Math.abs(macdWinMax) * 0.5 : null;
+
+    const signalConditions = {
+      requireBullBias:     currentState === 'Buy bias',
+      requireMacdPositive: macdPositive,
+      requireAboveMA20:    aboveMA20,
+      minRsi: lastRsi != null ? Math.max(32, lastRsi - 6) : 38,  // tighter: ±6
+      maxRsi: lastRsi != null ? Math.min(76, lastRsi + 6) : 70,  // was ±12
+      requireVolConfirm:   highVol,   // only match bars with similar volume profile
+      macdHistMin,
+      macdHistMax,
+    };
+
+    // ── OPENING GAP PROBABILITY ───────────────────────────
+    // Backtest: given current signal conditions, how often did the NEXT open
+    // come in ABOVE the previous close? Uses actual gap data from loaded history.
+    function calcOpeningGapProb(data, signalConditions) {
+      const closes  = data.map(d => d.close);
+      const volumes = data.map(d => d.volume);
+      const ma20arr = sma(closes, 20);
+      const ma50arr = sma(closes, 50);
+      const ma200arr= sma(closes, 200);
+      const rsi14arr= rsi(closes, 14);
+      const ma20vol = sma(volumes, 20);
+      const { hist: macdHistArr } = macdLine(closes);
+
+      const { requireBullBias, requireMacdPositive, requireAboveMA20, minRsi, maxRsi } = signalConditions;
+
+      let gapUpCount = 0, gapDownCount = 0, trials = 0;
+
+      // Walk through history leaving 1 day lookahead
+      for (let i = 50; i < data.length - 1; i++) {
+        const bullBias  = ma50arr[i]!=null && ma200arr[i]!=null && ma50arr[i] > ma200arr[i];
+        const abMA20    = ma20arr[i]!=null && closes[i] >= ma20arr[i];
+        const rsiNow    = rsi14arr[i];
+        const macdNow   = macdHistArr[i];
+        const macdPos   = macdNow != null && macdNow > 0;
+
+        if (requireBullBias && !bullBias) continue;
+        if (requireMacdPositive && !macdPos) continue;
+        if (requireAboveMA20 && !abMA20) continue;
+        if (rsiNow == null || rsiNow < minRsi || rsiNow > maxRsi) continue;
+
+        trials++;
+        const nextOpen  = data[i+1].open;
+        const thisClose = data[i].close;
+        if (nextOpen > thisClose * 1.0005) gapUpCount++;   // >0.05% = meaningful gap up
+        else if (nextOpen < thisClose * 0.9995) gapDownCount++;
+      }
+
+      if (trials < 12) return { prob: null, direction: null, trials: 0 };
+
+      const gapUpPct   = Math.round((gapUpCount / trials) * 100);
+      const gapDownPct = Math.round((gapDownCount / trials) * 100);
+      const flatPct    = 100 - gapUpPct - gapDownPct;
+      const direction  = gapUpPct > gapDownPct ? 'UP' : gapUpPct < gapDownPct ? 'DOWN' : 'FLAT';
+
+      return { gapUpPct, gapDownPct, flatPct, direction, trials,
+               prob: direction === 'UP' ? gapUpPct : gapDownPct };
+    }
+
+    const openingGap = calcOpeningGapProb(data, signalConditions);
+
+    // ── SOLVE FOR TARGET: ATR FLOOR + 75% PROBABILITY ─────────
+    // Priority: find the highest target achievable within the allowed days at your probability floor
+    // and never go below your ATR-based target floor. If that floor is not achievable, show the best available fallback
+    // and flag whether the floor target is met.
+    function solveShortTerm(entry, atrPct, buyScore, sellScore) {
+      const costPct = getTotalCostPct(ticker);
+      const TARGET_PROB = 75;
+      const floorGrossPct = getTargetFloorGrossPct(entry, atrPct, ticker);
+      const MIN_GROSS = floorGrossPct; // Dynamic gross floor from ATR and costs
+      
+      const MAX_DAYS       = 20;
+
+      let bestResult = null;
+
+      for (let d = 1; d <= MAX_DAYS; d++) {
+        // Binary search: find the highest % that still keeps the hit rate at or above the target threshold
+        let lo = 0.2, hi = 10, bestPctForD = 0;
+        for (let iter = 0; iter < 25; iter++) {
+          const mid = (lo + hi) / 2;
+          const testSell = entry * (1 + mid / 100);
+          const p = estimateProbability(entry, testSell, d, atrPct, buyScore, sellScore, data, signalConditions);
+          if (p >= TARGET_PROB) { bestPctForD = mid; lo = mid; }
+          else { hi = mid; }
+        }
+
+        // If we found a % above the ATR floor at the target hit rate, use it
+        if (bestPctForD >= MIN_GROSS) {
+          const candidateSell = entry * (1 + bestPctForD / 100);
+          const candidateProb = estimateProbability(entry, candidateSell, d, atrPct, buyScore, sellScore, data, signalConditions);
+          bestResult = { sellPrice: candidateSell, days: d, prob: candidateProb, profitPct: bestPctForD, meetsMinProfit: true };
+          break;
+        }
+      }
+
+      if (bestResult) {
+        return {
+          sellPrice: bestResult.sellPrice,
+          days: bestResult.days,
+          prob: bestResult.prob,
+          profitPct: bestResult.profitPct,
+          meetsMinProfit: bestResult.meetsMinProfit
+        };
+      }
+
+      // Fallback: use the ATR floor in 3 days even if probability drops below the preferred threshold
+      const fallbackGross = floorGrossPct;
+      const fallbackSell = entry * (1 + fallbackGross / 100);
+      const fallbackProb = estimateProbability(entry, fallbackSell, 3, atrPct, buyScore, sellScore, data, signalConditions);
+      return {
+        sellPrice: fallbackSell,
+        days: 3,
+        prob: fallbackProb,
+        profitPct: fallbackGross,
+        meetsMinProfit: false
+      };
+    }
+
+    const entry = last.close;
+    const { sellPrice, days: suggestedDays, prob: probHit, profitPct: solvedProfitPct, meetsMinProfit } = solveShortTerm(entry, atrPct, buyScore, sellScore);
+
+    const stopPlan = calcSuggestedStop(entry, atrNow, data);
+
+    const commonAnalysis = {
+      entry, suggestedSell: sellPrice, suggestedDays, atrPct, atrPctile,
+      atr14val: atrNow, stopPlan, probHit, buyScore, sellScore,
+      mom3d, volRatio, currentState, hasStrength, hasWeakness, lastRsi,
+      macdPositive, macdExpanding,
+      hi52, lo52, pctFrom52Hi, pctFrom52Lo,
+      earningsNear, spyBearish, bearMarket, signalConditions,
+      meetsMinProfit, solvedProfitPct, openingGap
+    };
+
+    // Hard filters to improve real-world accuracy by avoiding hostile conditions.
+    // For swing trading, relax these gates - earnings within 5 days and modest bear market drawdowns are OK
+    if (earningsNear && earningsNear < 2) {
+      // Only skip if earnings are VERY close (same day or tomorrow)
+      return {
+        action: 'WAIT',
+        confidence: 'High',
+        reason: 'Setup skipped: earnings are too close (tomorrow) for a reliable swing entry.',
+        rankScore: 0,
+        analysis: { ...commonAnalysis, positionSignal:'WAIT', positionSignalSub:'Come back after earnings.' }
+      };
+    }
+
+    const relStrength20 = calcRelativeStrength20(ticker, data);
+
+    // Only block if in SEVERE bear market AND ticker is underperforming significantly
+    if (bearMarket && relStrength20 != null && relStrength20 < -10) {
+      return {
+        action: 'WAIT',
+        confidence: 'High',
+        reason: 'Setup skipped: bear market is severe and this ticker is significantly underperforming.',
+        rankScore: 0,
+        analysis: { ...commonAnalysis, relStrength20, positionSignal:'WAIT', positionSignalSub:'Wait for stronger market conditions or confirmed relative strength.' }
+      };
+    }
+
+    const qualityBuyGate =
+      buyScore >= 5 &&
+      buyScore >= sellScore + 1 &&
+      macdPositive &&
+      lastRsi != null &&
+      lastRsi >= 40 &&
+      lastRsi <= 70 &&
+      probHit >= 65;
+      // Removed: hasRecentBuy - swing traders don't need 20/50 crossover confirmation
+      // Removed: !hasWeakness - swing traders can trade into weakness if other signals are strong
+
+    // DEBUG: Log why gate failed
+    if (!qualityBuyGate) {
+      console.log(`[${ticker}] qualityBuyGate FAILED:`, {
+        'buyScore >= 5': buyScore >= 5, buyScore,
+        'buyScore >= sellScore + 1': buyScore >= sellScore + 1, sellScore,
+        'macdPositive': macdPositive,
+        'lastRsi != null && >= 40 && <= 70': lastRsi != null && lastRsi >= 40 && lastRsi <= 70, lastRsi,
+        'probHit >= 65': probHit >= 65, probHit
+      });
+    }
+
+    const eliteBuyGate =
+      qualityBuyGate &&
+      buyScore >= 8 &&
+      buyScore >= sellScore + 2 &&
+      hasStrength &&
+      aboveMA20 &&
+      aboveMA50 &&
+      macdExpanding &&
+      lastRsi >= 45 &&
+      lastRsi <= 68 &&
+      probHit >= 70 &&
+      (relStrength20 == null || relStrength20 >= 0);
+
+    if (eliteBuyGate) {
+      const ps = buildPositionSignal();
+      return {
+        action: 'BUY NOW',
+        confidence: buyScore>=9 && probHit>=80 ? 'High' : 'Medium',
+        reason: 'High-confidence buy setup: '+buyR.slice(0,4).join(', ')+'.',
+        rankScore,
+        analysis: { ...commonAnalysis, relStrength20, positionSignal: ps.signal, positionSignalSub: ps.sub }
+      };
+    }
+
+    if (qualityBuyGate) {
+      const ps = buildPositionSignal();
+      return {
+        action: 'BUY NOW',
+        confidence: buyScore>=6 && probHit>=70 ? 'Medium' : 'Low',
+        reason: 'Buy setup: '+buyR.slice(0,3).join(', ')+'.',
+        rankScore: Math.max(0, rankScore - 3),
+        analysis: { ...commonAnalysis, relStrength20, positionSignal: ps.signal, positionSignalSub: 'Setup meets minimum accuracy threshold. Monitor for early exit signals.' }
+      };
+    }
+
+    if (sellScore >= 6 && sellScore >= buyScore + 3) {
+      return {
+        action: 'SELL NOW',
+        confidence: sellScore>=7?'High':'Medium',
+        reason: 'Sell advisory: '+sellR.slice(0,4).join(', ')+'.',
+        rankScore: 0,
+        analysis: { ...commonAnalysis, positionSignal:'EXIT / AVOID', positionSignalSub:'The balance of evidence has turned against a long position.' }
+      };
+    }
+
+    return {
+      action: 'WAIT',
+      confidence: 'Medium',
+      reason: 'Mixed or lower-quality signals — accuracy mode is waiting for stronger confirmation.',
+      rankScore: 0,
+      analysis: { ...commonAnalysis, positionSignal:'WAIT', positionSignalSub:'No clear edge yet — wait for stronger confirmation.' }
+    };
+  }
+
+  // ── EARNINGS CHECK ────────────────────────────────────
+  function checkEarnings(ticker) {
+    const dates = EARNINGS_DATES[ticker.toUpperCase()];
+    if (!dates) return null;
+    const today = new Date();
+    for (const d of dates) {
+      const dt = new Date(d+'T00:00:00');
+      const diff = (dt-today)/(1000*60*60*24);
+      if (diff>=-1&&diff<=7) return d;
+    }
+    return null;
+  }
+
+  // ── CHART ─────────────────────────────────────────────
+  function initChart() {
+    chart = LightweightCharts.createChart($('chart'), {
+      width:  $('chart').clientWidth,
+      height: 500,
+      layout: { background:{color:'#070f1c'}, textColor:'#c8dff5' },
+      grid:   { vertLines:{color:'rgba(26,47,72,0.5)'}, horzLines:{color:'rgba(26,47,72,0.5)'} },
+      rightPriceScale: { borderColor:'#1a2f48' },
+      timeScale: { borderColor:'#1a2f48', timeVisible:true, secondsVisible:false }
+    });
+
+    volumeSeries = chart.addHistogramSeries({
+      color: 'rgba(100,150,200,0.18)',
+      priceFormat: { type:'volume' },
+      priceScaleId: 'vol',
+      scaleMargins: { top:0.8, bottom:0 }
+    });
+
+    candleSeries = chart.addCandlestickSeries({
+      upColor:'#00e676', downColor:'#ff4d6a',
+      wickUpColor:'#00e676', wickDownColor:'#ff4d6a',
+      borderVisible:false
+    });
+
+    window.addEventListener('resize', ()=>chart.applyOptions({width:$('chart').clientWidth}));
+  }
+
+  function filterByDays(data, markers, days) {
+    if (!days||!data.length) return { d:data, m:markers };
+    const last = new Date(data[data.length-1].time+'T00:00:00');
+    const start = new Date(last); start.setDate(start.getDate()-(days-1));
+    const d = data.filter(x=>new Date(x.time+'T00:00:00')>=start);
+    const times = new Set(d.map(x=>x.time));
+    return { d, m:markers.filter(x=>times.has(x.time)) };
+  }
+
+  function renderChart(days) {
+    if (!currentFullData.length) return;
+    const { d, m } = filterByDays(currentFullData, currentMarkers, days);
+    candleSeries.setData(d);
+    candleSeries.setMarkers(m);
+    volumeSeries.setData(d.map(x=>({ time:x.time, value:x.volume,
+      color: x.close>=x.open ? 'rgba(0,230,118,0.2)' : 'rgba(255,77,106,0.2)' })));
+    chart.timeScale().fitContent();
+  }
+
+  // ── CURRENT DECISION STATE (for recalculation) ────────
+  let currentDecision = null;
+
+
+  function getBuyQuality(decision, analysis) {
+    const prob = analysis?.probHit ?? 0;
+    const netScore = (analysis?.buyScore || 0) - (analysis?.sellScore || 0);
+    if (decision.action === 'BUY NOW' && prob >= 78 && netScore >= 7) {
+      return { label: 'GOOD BUY', badge: 'A setup', color: '#00e676', sub: 'High-probability setup with strong internal signal alignment.' };
+    }
+    if (decision.action === 'BUY NOW' && prob >= 55) {
+      return { label: 'BUYABLE', badge: 'B setup', color: '#ffd700', sub: 'Tradeable buy setup, but not your strongest tier.' };
+    }
+    if (decision.action === 'SELL NOW') {
+      return { label: 'AVOID LONG', badge: 'Risk', color: '#ff4d6a', sub: 'The engine is not treating this as a fresh long entry.' };
+    }
+    return { label: 'NOT READY', badge: 'Wait', color: '#7a9ab8', sub: 'No clear good-buy edge yet. Let the setup improve.' };
+  }
+
+  function calcBuyRange(baseEntry, atrValue) {
+    if (!baseEntry || !atrValue || !isFinite(baseEntry) || !isFinite(atrValue) || atrValue <= 0) return null;
+    const offset = atrValue * 0.5;
+    return {
+      low: baseEntry - offset,
+      ideal: baseEntry,
+      high: baseEntry + offset,
+      offset
+    };
+  }
+
+  function getEntryVerdict(liveEntry, buyRange, decisionAction) {
+    if (!buyRange) {
+      return { label: 'NO RANGE', color: '#7a9ab8', sub: 'ATR data is missing, so no buy range can be calculated.' };
+    }
+    if (decisionAction === 'SELL NOW') {
+      return { label: 'AVOID LONG', color: '#ff4d6a', sub: 'This is not being treated as a fresh long entry.' };
+    }
+    if (!liveEntry || !isFinite(liveEntry) || liveEntry <= 0) {
+      return { label: 'CHECK OPEN', color: '#7a9ab8', sub: `Use the Entry price field at the open. Planned buy range: ${fp(buyRange.low)} to ${fp(buyRange.high)}.` };
+    }
+    if (liveEntry < buyRange.low) {
+      return { label: 'TOO LOW', color: '#ff8c00', sub: 'Price is below the planned buy range. Recheck the setup before entering.' };
+    }
+    if (liveEntry > buyRange.high) {
+      return { label: 'TOO HIGH', color: '#ff4d6a', sub: 'Price is above the buy range, so you would be chasing the move.' };
+    }
+    const distanceFromIdealPct = Math.abs((liveEntry - buyRange.ideal) / buyRange.ideal) * 100;
+    if (distanceFromIdealPct <= 0.2) {
+      return { label: 'IDEAL ENTRY', color: '#00e676', sub: 'Price is very close to the planned entry and still inside your range.' };
+    }
+    return { label: 'ENTRY OK', color: '#ffd700', sub: 'Price is still inside the buy range, but not at the ideal entry.' };
+  }
+
+
+  function getTradeFilter({ action, entryVerdict, stopPlan, grossPctVal, netPctVal, prob, buyQuality, atrPct, ticker }) {
+    if (!stopPlan || !isFinite(stopPlan.finalStop) || !isFinite(stopPlan.riskPct) || stopPlan.riskPct <= 0) {
+      return { label: 'WAIT', color: '#7a9ab8', badge: 'PENDING', sub: 'Stop plan is not ready yet, so the trade cannot be filtered.' };
+    }
+    if (action === 'SELL NOW') {
+      return { label: 'SKIP TRADE', color: '#ff4d6a', badge: 'SKIP', sub: 'Current signal is not being treated as a fresh long entry.' };
+    }
+    if (entryVerdict?.label === 'TOO HIGH') {
+      return { label: 'SKIP TRADE', color: '#ff4d6a', badge: 'SKIP', sub: 'Price is above the buy range, so you would be chasing the move.' };
+    }
+    if (entryVerdict?.label === 'TOO LOW' || entryVerdict?.label === 'AVOID LONG') {
+      return { label: 'SKIP TRADE', color: '#ff4d6a', badge: 'SKIP', sub: 'Entry is below the planned range or the long setup is invalid.' };
+    }
+    const rr = grossPctVal > 0 ? grossPctVal / stopPlan.riskPct : 0;
+    const reasons = [];
+        const floorGrossPct = getTargetFloorGrossPct(null, atrPct || 0, ticker);
+    if (grossPctVal < floorGrossPct) reasons.push(`target below floor ${floorGrossPct.toFixed(2)}%`);
+    if (prob < 48) reasons.push('hit-rate below 48%');
+    if (stopPlan.riskPct > 10) reasons.push(`stop is wide at ${stopPlan.riskPct.toFixed(2)}%`);
+    if (rr < 0.4) reasons.push(`reward/risk only ${rr.toFixed(2)}x`);
+    if (buyQuality === 'AVOID') reasons.push('buy quality is too weak');
+    if (reasons.length) {
+      return { label: 'SKIP TRADE', color: '#ff4d6a', badge: 'SKIP', sub: reasons.join(' · ') };
+    }
+    const goodReasons = [];
+    if (prob >= 70) goodReasons.push(`${prob}% hit rate`);
+    if (rr >= 0.8) goodReasons.push(`${rr.toFixed(2)}x reward/risk`);
+    if (stopPlan.riskPct <= 5) goodReasons.push(`${stopPlan.riskPct.toFixed(2)}% stop`);
+    if (buyQuality === 'GOOD BUY') goodReasons.push('strong buy quality');
+    if (prob >= 62 && rr >= 0.4 && stopPlan.riskPct <= 8) {
+      return { label: 'TAKE TRADE', color: '#00e676', badge: 'TAKE', sub: goodReasons.join(' · ') || 'Risk, reward and probability are all inside range.' };
+    }
+    return { label: 'BORDERLINE', color: '#ffd700', badge: 'CHECK', sub: `${prob}% hit rate · ${rr.toFixed(2)}x reward/risk · ${stopPlan.riskPct.toFixed(2)}% stop` };
+  }
+
+  function recalcPlanPanel() {
+    if (!currentDecision || !currentDecision.analysis) return;
+    const a = currentDecision.analysis;
+
+    // Get effective entry (override or auto)
+    const entryOverrideVal = parseFloat($('entryOverride').value);
+    const entry = (!isNaN(entryOverrideVal) && entryOverrideVal > 0) ? entryOverrideVal : a.entry;
+
+    // Days from slider
+    const days = parseInt($('daysSlider').value) || 3;
+
+    const hasManualSell = $('sellOverride').value && !isNaN(parseFloat($('sellOverride').value));
+    const sellOverrideVal = parseFloat($('sellOverride').value);
+    const ticker = $('ticker').value.trim().toUpperCase();
+
+    let sell, prob;
+
+    if (hasManualSell && sellOverrideVal > 0) {
+      // Manual sell entered: hold sell price fixed, show resulting probability
+      sell = sellOverrideVal;
+      prob = sell > entry
+        ? estimateProbability(entry, sell, days, a.atrPct, a.buyScore, a.sellScore, currentFullData, a.signalConditions)
+        : 0;
+    } else {
+      // No manual sell: use suggested sell price, show probability at different days
+      sell = a.suggestedSell || entry * (1 + getTargetFloorGrossPct(entry, a.atrPct, ticker) / 100);
+      prob = sell > entry
+        ? estimateProbability(entry, sell, days, a.atrPct, a.buyScore, a.sellScore, currentFullData, a.signalConditions)
+        : 0;
+    }
+
+    // Capital / shares / profit — deduct T212 trading costs
+    const costPct  = getTotalCostPct(ticker);         // % round-trip cost
+    const account  = getAccount();
+    const shares   = entry > 0 ? account / entry : 0;
+    const capitalNeeded = shares * entry;
+    const costAbs  = account * (costPct / 100);       // £ cost
+    const grossProfit = shares * (sell - entry);
+    const netProfit   = grossProfit - costAbs;
+    const grossPctVal = entry > 0 ? ((sell - entry) / entry) * 100 : 0;
+    const netPctVal   = grossPctVal - costPct;
+
+    const targetFloorGross = getTargetFloorGrossPct(entry, a.atrPct, ticker);
+    $('planSellPct').textContent = `+${grossPctVal.toFixed(2)}% gross · net ${netPctVal.toFixed(2)}% · ${days}d · ${prob}%${grossPctVal < targetFloorGross ? ` · ⚠ <floor ${targetFloorGross.toFixed(2)}%` : ''}`;
+    $('planCapital').textContent = fm(capitalNeeded);
+    $('planShares').textContent  = Number(shares).toLocaleString(undefined,{maximumFractionDigits:4});
+    $('estProfit').textContent   = (netProfit >= 0 ? '+' : '') + fm(netProfit) + ` (−${fm(costAbs)} costs)`;
+    $('estProfitPct').textContent = (netPctVal >= 0 ? '+' : '') + netPctVal.toFixed(2) + `% net (${grossPctVal.toFixed(2)}% gross)`;
+    $('daysNum').textContent     = days;
+
+    // Days note
+    const hasBacktest = currentFullData && currentFullData.length > 60 && a.signalConditions;
+    const probSource = hasBacktest ? 'backtested hit rate' : 'volatility model';
+    const meetsMin = grossPctVal >= targetFloorGross;
+    const costNote = `FX 0.30% + spread ${(costPct - 0.30).toFixed(2)}% = ${costPct.toFixed(2)}% total`;
+    if (hasManualSell) {
+      $('daysNote').textContent = `Manual sell · ${costNote} · ${probSource}`;
+    } else {
+      $('daysNote').textContent = `${days}d at ${prob}% hit rate · ${costNote}${meetsMin ? '' : ` · ⚠ below floor ${targetFloorGross.toFixed(2)}%`}`;
+    }
+
+    // Buy range / entry verdict
+    const buyRange = calcBuyRange(a.entry, a.atr14val);
+    $('buyRangeLow').textContent = buyRange?.low != null ? fp(buyRange.low) : '—';
+    $('buyRangeMid').textContent = buyRange?.ideal != null ? fp(buyRange.ideal) : '—';
+    $('buyRangeHigh').textContent = buyRange?.high != null ? fp(buyRange.high) : '—';
+    $('buyRangeLowSub').textContent = buyRange?.offset != null ? `0.5× ATR = ${fp(buyRange.offset)}` : 'Needs ATR data';
+    $('buyRangeMidSub').textContent = `Based on last close${(!isNaN(entryOverrideVal) && entryOverrideVal > 0) ? ' · compare using Entry price field' : ''}`;
+    $('buyRangeHighSub').textContent = buyRange?.offset != null ? `0.5× ATR = ${fp(buyRange.offset)}` : 'Needs ATR data';
+    const entryVerdict = getEntryVerdict(entryOverrideVal > 0 ? entryOverrideVal : null, buyRange, currentDecision.action);
+    $('entryVerdict').textContent = entryVerdict.label;
+    $('entryVerdict').style.color = entryVerdict.color;
+    $('entryVerdictSub').textContent = entryVerdict.sub;
+
+    // Suggested stop plan
+    const stopPlan = calcSuggestedStop(entry, a.atr14val, currentFullData);
+    $('planSwingLow').textContent = stopPlan?.swingLow != null ? fp(stopPlan.swingLow) : '—';
+    $('planSwingLowSub').textContent = stopPlan?.swingTime ? `Support from ${fdate(stopPlan.swingTime)}${stopPlan.swingMethod === 'window-low' ? ' · fallback' : ''}` : 'No recent swing low found';
+    $('planAtrStop').textContent = stopPlan?.atrStop != null ? fp(stopPlan.atrStop) : '—';
+    $('planAtrStopSub').textContent = stopPlan?.atrStop != null ? `1.75× ATR = ${fp((a.atr14val || 0) * 1.75)}` : 'Needs ATR data';
+    $('planStructureStop').textContent = stopPlan?.structureStop != null ? fp(stopPlan.structureStop) : '—';
+    $('planStructureStopSub').textContent = stopPlan?.buffer != null ? `Buffer ${fp(stopPlan.buffer)} below support` : 'Needs structure';
+    $('planFinalStop').textContent = stopPlan?.finalStop != null ? fp(stopPlan.finalStop) : '—';
+    $('planFinalStopSub').textContent = stopPlan?.riskPct != null ? `${stopPlan.riskPct.toFixed(2)}% risk · ${stopPlan.riskAtr?.toFixed(2)} ATR` : 'Waiting for valid stop';
+    const riskAbs = stopPlan?.finalStop != null ? shares * Math.max(0, entry - stopPlan.finalStop) : 0;
+    $('stopNote').textContent = stopPlan?.finalStop != null
+      ? `Suggested stop uses the wider of ATR stop and structure stop. Risk on this position: ${fm(riskAbs)} if stopped.`
+      : 'Suggested stop unavailable for this ticker.';
+
+    const buyQualityLabel = $('buyQualityValue')?.textContent || '';
+    const tradeFilter = getTradeFilter({
+      action: currentDecision.action,
+      entryVerdict,
+      stopPlan,
+      grossPctVal,
+      netPctVal,
+      prob,
+      buyQuality: buyQualityLabel,
+      atrPct: a.atrPct,
+      ticker
+    });
+    $('tradeFilterValue').textContent = tradeFilter.label;
+    $('tradeFilterValue').style.color = tradeFilter.color;
+    $('tradeFilterSub').textContent = tradeFilter.sub;
+    $('tradeFilterBadge').textContent = tradeFilter.badge;
+    $('tradeFilterBadge').style.color = tradeFilter.color;
+    $('tradeFilterBadge').style.borderColor = tradeFilter.color;
+    $('tradeFilterBadge').style.background = tradeFilter.color === '#ff4d6a'
+      ? 'rgba(255,77,106,0.08)'
+      : tradeFilter.color === '#00e676'
+      ? 'rgba(0,230,118,0.08)'
+      : 'rgba(255,215,0,0.08)';
+
+    // Probability circle
+    const circumference = 213.6;
+    const arc = circumference * (1 - prob / 100);
+    $('probArc').style.strokeDashoffset = arc;
+    $('probArc').style.stroke = prob >= 85 ? '#00e676' : prob >= 70 ? '#ffd700' : '#ff4d6a';
+    $('probPct').textContent = prob + '%';
+    $('probPct').style.color = prob >= 85 ? '#00e676' : prob >= 70 ? '#ffd700' : '#ff4d6a';
+    const probLabelEl = document.querySelector('.prob-label');
+    if (probLabelEl) probLabelEl.textContent = hasBacktest ? 'Hit target' : 'Modelled';
+
+    // Min-profit warning — based on NET profit after costs
+    const minProfitEl = $('minProfitWarn');
+    if (grossPctVal < targetFloorGross && grossPctVal > 0) {
+      minProfitEl.classList.add('visible');
+      minProfitEl.textContent = `⚠ Gross target ${grossPctVal.toFixed(2)}% is below your floor ${targetFloorGross.toFixed(2)}% after factoring ATR and costs`;
+    } else {
+      minProfitEl.classList.remove('visible');
+    }
+
+    // Entry base label
+    $('planEntryBase').textContent = `Last close: ${fp(a.entry)}`;
+    if (!isNaN(entryOverrideVal) && entryOverrideVal > 0 && Math.abs(entryOverrideVal - a.entry) > 0.005) {
+      $('planEntryBase').textContent += ` · overridden`;
+      $('planEntryBase').style.color = 'var(--gold)';
+    } else {
+      $('planEntryBase').style.color = 'var(--muted)';
+    }
+
+    // ── DAYS TO 3% PANEL ─────────────────────────────────
+    const stored = tickerState[ticker];
+    let d3;
+    if (!isNaN(entryOverrideVal) && entryOverrideVal > 0 && Math.abs(entryOverrideVal - a.entry) > 0.005) {
+      const overriddenA3 = { ...a, entry: entryOverrideVal };
+      d3 = calcDaysTo3Pct(overriddenA3, currentFullData, ticker);
+    } else {
+      d3 = stored?.days3pct ?? calcDaysTo3Pct(a, currentFullData, ticker);
+    }
+
+    if (d3 != null) {
+      $('days3Num').textContent  = d3;
+      $('days3Unit').textContent = d3 === 1 ? 'trading day' : 'trading days';
+      $('days3Num').style.color  = d3 <= 3 ? '#00e676' : d3 <= 7 ? '#ffd700' : '#ff8c00';
+      // Position the marker and fill on the 1–30 scale
+      const pct = Math.min(100, ((d3 - 1) / 29) * 100);
+      $('days3Fill').style.width   = pct + '%';
+      $('days3Marker').style.left  = pct + '%';
+      const floorText = `${getTargetFloorGrossPct(entry, a.atrPct, ticker).toFixed(2)}% floor`;
+      $('days3Sub').textContent = d3 <= 3
+        ? `Move slider to ${d3} — you'll see ${floorText} at 70% probability`
+        : d3 <= 7
+        ? `Move slider to ${d3} days to see ${floorText} at 70% probability`
+        : `Move slider to ${d3} days for ${floorText} at 75% — signal is weaker short-term`;
+    } else {
+      $('days3Num').textContent  = '30+';
+      $('days3Unit').textContent = 'trading days';
+      $('days3Num').style.color  = '#ff4d6a';
+      $('days3Fill').style.width   = '100%';
+      $('days3Marker').style.left  = '100%';
+      $('days3Sub').textContent = 'Max profit at 70% probability never reaches your target floor within 30 days — signal too weak or volatility too low';
+    }
+  }
+
+  function updateDecisionUI(decision) {
+    currentDecision = decision;
+
+    const v=$('decisionValue');
+    v.textContent = decision.action;
+    v.className = 'decision-action ' +
+      (decision.action==='BUY NOW'?'action-buy':decision.action==='SELL NOW'?'action-sell':'action-wait');
+
+    $('decisionReason').textContent = decision.reason||'';
+
+    const cb=$('confBadge');
+    cb.textContent = decision.confidence||'—';
+    cb.className = 'confidence-badge ' +
+      (decision.confidence==='High'?'conf-high':decision.confidence==='Medium'?'conf-medium':'conf-low');
+
+    const pg=$('planGrid');
+    const a = decision.analysis || {};
+
+    if (decision.action==='BUY NOW' || decision.action==='WAIT' || decision.action==='SELL NOW' || decision.action==='WATCH') {
+      pg.style.display='block';
+
+      // Bear market regime banner
+      if (a.bearMarket) {
+        $('regimeWarn').classList.add('visible');
+        $('regimeText').textContent = 'Bear market regime — SPY & QQQ both in downtrend. All BUY signals carry significantly higher risk.';
+      } else if (a.spyBearish) {
+        $('regimeWarn').classList.add('visible');
+        $('regimeText').textContent = 'SPY is in a downtrend (50D below 200D). BUY signals have lower reliability in this environment.';
+      } else {
+        $('regimeWarn').classList.remove('visible');
+      }
+
+      // Reset sell override field to show fresh suggested price
+      if (!$('sellOverride').value) {
+        $('sellOverride').placeholder = a.suggestedSell ? fp(a.suggestedSell) : '—';
+      }
+      // Set entry field placeholder
+      $('entryOverride').placeholder = a.entry ? fp(a.entry) : '—';
+
+      // Set slider to suggested days from the dynamic target solver
+      $('daysSlider').value = a.suggestedDays || 3;
+
+      // Position signal
+      const sigEl = $('positionSignal');
+      sigEl.textContent = a.positionSignal || '—';
+      sigEl.style.color =
+        a.positionSignal === 'EXIT EARLY' || a.positionSignal === 'EXIT / AVOID' ? '#ff4d6a' :
+        a.positionSignal === 'HOLD' ? '#00e676' :
+        a.positionSignal === 'HOLD TIGHT' ? '#ffd700' : '#c8dff5';
+      $('positionSignalSub').textContent = a.positionSignalSub || '—';
+
+      // Signal strength + regime context
+      const netScore = (a.buyScore||0) - (a.sellScore||0);
+      $('signalStrength').textContent = netScore >= 8 ? 'Strong' : netScore >= 5 ? 'Moderate' : netScore >= 2 ? 'Weak' : 'Mixed';
+      $('signalStrength').style.color = netScore >= 8 ? '#00e676' : netScore >= 5 ? '#ffd700' : '#7a9ab8';
+
+      const buyQuality = getBuyQuality(decision, a);
+      $('buyQualityValue').textContent = buyQuality.label;
+      $('buyQualityValue').style.color = buyQuality.color;
+      $('buyQualitySub').textContent = buyQuality.sub;
+      $('buyQualityBadge').textContent = buyQuality.badge;
+      $('buyQualityBadge').style.color = buyQuality.color;
+      $('buyQualityBadge').style.borderColor = buyQuality.color;
+      $('buyQualityBadge').style.background = buyQuality.color === '#00e676'
+        ? 'rgba(0,230,118,0.08)'
+        : buyQuality.color === '#ffd700'
+        ? 'rgba(255,215,0,0.08)'
+        : buyQuality.color === '#ff4d6a'
+        ? 'rgba(255,77,106,0.08)'
+        : 'rgba(255,255,255,0.03)';
+
+      // Opening gap probability panel
+      const og = a.openingGap;
+      if (og && og.prob !== null && og.trials >= 8) {
+        $('gapPanel').style.display = 'block';
+        const up   = og.gapUpPct   || 0;
+        const flat = og.flatPct    || 0;
+        const down = og.gapDownPct || 0;
+        $('gapBarUp').style.width   = up   + '%';
+        $('gapBarFlat').style.width = flat + '%';
+        $('gapBarDown').style.width = down + '%';
+        $('gapUpPct').textContent   = up   + '%';
+        $('gapFlatPct').textContent = flat + '%';
+        $('gapDownPct').textContent = down + '%';
+        $('gapUpPct').style.color   = '#00e676';
+        $('gapFlatPct').style.color = '#7a9ab8';
+        $('gapDownPct').style.color = '#ff4d6a';
+
+        const verdictEl = $('gapVerdict');
+        if (og.direction === 'UP') {
+          verdictEl.textContent = `▲ More likely to open UP (${up}% of historical matches opened higher)`;
+          verdictEl.className = 'gap-verdict up';
+        } else if (og.direction === 'DOWN') {
+          verdictEl.textContent = `▼ More likely to open DOWN (${down}% of historical matches opened lower)`;
+          verdictEl.className = 'gap-verdict down';
+        } else {
+          verdictEl.textContent = `→ Opening direction is roughly even`;
+          verdictEl.className = 'gap-verdict flat';
+        }
+        $('gapTrials').textContent = `Based on ${og.trials} matching historical sessions from loaded data`;
+      } else {
+        $('gapPanel').style.display = 'none';
+      }
+
+      // Market context insight grid
+      const atrPct = a.atrPct || 0;
+      const atrPctile = a.atrPctile || 50;
+      $('iAtr').textContent = atrPct.toFixed(2) + '% · ' + atrPctile + 'th pct';
+      $('iAtr').style.color = atrPctile > 80 ? '#ff4d6a' : atrPctile > 60 ? '#ffd700' : '#00e676';
+      $('iAtrSub').textContent = atrPctile > 80 ? 'Elevated vol — targets harder to hit' : atrPctile > 60 ? 'Above-average volatility' : 'Normal/low volatility — good for targeting';
+
+      const mom = a.mom3d || 0;
+      $('iMom').textContent = (mom >= 0 ? '+' : '') + mom.toFixed(2) + '%';
+      $('iMom').style.color = mom > 1 ? '#00e676' : mom < -1 ? '#ff4d6a' : '#7a9ab8';
+      $('iMomSub').textContent = mom > 2 ? 'Strong upward momentum' : mom > 0 ? 'Mild positive drift' : mom < -2 ? 'Strong downward pressure' : 'Weak / flat momentum';
+
+      // MACD
+      const macdLabel = a.macdPositive ? (a.macdExpanding ? 'Expanding ↑' : 'Positive →') : (a.macdExpanding ? 'Contracting ↓' : 'Negative →');
+      $('iMacd').textContent = macdLabel;
+      $('iMacd').style.color = a.macdPositive && a.macdExpanding ? '#00e676' : a.macdPositive ? '#7addb8' : a.macdExpanding === false ? '#ff4d6a' : '#7a9ab8';
+      $('iMacdSub').textContent = a.macdPositive && a.macdExpanding ? 'Momentum accelerating — strong signal' : a.macdPositive ? 'Momentum positive but fading' : 'Momentum negative — caution';
+
+      const vr = a.volRatio;
+      $('iVol').textContent = vr ? vr.toFixed(1) + 'x avg' : '—';
+      $('iVol').style.color = vr >= 1.5 ? '#00e676' : vr <= 0.6 ? '#ff4d6a' : '#7a9ab8';
+      $('iVolSub').textContent = vr >= 1.5 ? 'Above-avg — conviction behind move' : vr <= 0.6 ? 'Low volume — lacks conviction' : 'Volume near average';
+
+      // 52W position
+      if (a.hi52 && a.lo52) {
+        const fromHi = a.pctFrom52Hi || 0;
+        const fromLo = a.pctFrom52Lo || 0;
+        $('i52w').textContent = fromHi.toFixed(1) + '% from high';
+        $('i52w').style.color = fromHi > -5 ? '#ffd700' : fromHi > -15 ? '#00d4ff' : '#00e676';
+        $('i52wSub').textContent = fromHi > -5 ? 'Near 52W high — watch resistance' : fromLo < 15 ? 'Near 52W low — recovery potential' : `Low: $${fp(a.lo52)} · High: $${fp(a.hi52)}`;
+      }
+
+      $('iTrend').textContent = a.currentState || '—';
+      $('iTrend').style.color = a.currentState === 'Buy bias' ? '#00e676' : a.currentState === 'Sell bias' ? '#ff4d6a' : '#7a9ab8';
+      $('iTrendSub').textContent = a.hasStrength ? 'Short-term strength active' : a.hasWeakness ? 'Short-term weakness active' : 'No short-term signal';
+
+      recalcPlanPanel();
+    } else {
+      pg.style.display='none';
+    }
+  }
+
+  function updateStatsUI(data, signals, currentState, currentSub, rsi14, ma20vol) {
+    if (!data.length) return;
+    const li   = data.length-1;
+    const last = data[li];
+    const lastRsi = rsi14?.[li];
+    const avgVol  = ma20vol?.[li];
+    const volRatio = avgVol&&avgVol>0 ? last.volume/avgVol : null;
+
+    $('statPrice').textContent = fp(last.close);
+    $('statDate').textContent  = fdate(last.time);
+    $('statBias').textContent  = currentState;
+    $('statBiasSub').textContent = currentSub;
+
+    if (lastRsi!=null) {
+      const r = lastRsi.toFixed(1);
+      $('statRsi').textContent = r;
+      $('statRsi').style.color = lastRsi>=70?'#ff4d6a':lastRsi<=30?'#00e676':lastRsi>=50?'#00d4ff':'#7a9ab8';
+      const bar=$('rsiBar');
+      bar.style.width = lastRsi+'%';
+      bar.style.background = lastRsi>=70?'#ff4d6a':lastRsi<=30?'#00e676':lastRsi>=50?'#00d4ff':'#7a9ab8';
+    } else {
+      $('statRsi').textContent='—';
+    }
+
+    $('statVol').textContent = fvol(last.volume);
+    $('statVolAvg').textContent = volRatio!=null ? `${volRatio.toFixed(1)}x avg` : '—';
+    $('statVolAvg').style.color = volRatio!=null&&volRatio>=1.5?'#00e676':volRatio!=null&&volRatio<=0.6?'#ff4d6a':'#7a9ab8';
+
+    const buys  = signals.filter(s=>s.type==='BUY');
+    const sells = signals.filter(s=>s.type==='SELL');
+    const lb = buys[buys.length-1], ls=sells[sells.length-1];
+    $('lastBuy').textContent      = lb?fp(lb.price):'—';
+    $('lastBuyDate').textContent  = lb?fdate(lb.date):'—';
+    $('lastSell').textContent     = ls?fp(ls.price):'—';
+    $('lastSellDate').textContent = ls?fdate(ls.date):'—';
+  }
+
+  // ── DIRECTORY ─────────────────────────────────────────
+  function computeRanks() {
+    const map = {};
+    const ranked = Object.entries(tickerState)
+      .filter(([,s]) => s && s.loaded && (s.tradeFilter === 'TAKE TRADE' || s.tradeFilter === 'BORDERLINE'))
+      .sort((a,b) => {
+        const sa = a[1] || {};
+        const sb = b[1] || {};
+        const ta = getTradeSortBucket(sa.tradeFilter);
+        const tb = getTradeSortBucket(sb.tradeFilter);
+        if (ta !== tb) return ta - tb;
+        const qa = getBuyQualityBucket(sa.buyQuality);
+        const qb = getBuyQualityBucket(sb.buyQuality);
+        if (qa !== qb) return qa - qb;
+        if ((sb.probHit||0) !== (sa.probHit||0)) return (sb.probHit||0) - (sa.probHit||0);
+        if ((sb.rewardRisk||0) !== (sa.rewardRisk||0)) return (sb.rewardRisk||0) - (sa.rewardRisk||0);
+        return (sa.days2pct||999) - (sb.days2pct||999);
+      });
+    ranked.forEach(([t], i) => { map[t] = i + 1; });
+    return map;
+  }
+
+  function getActionClass(a) {
+    if (a==='BUY NOW') return 'action-buy';
+    if (a==='SELL NOW') return 'action-sell';
+    if (a==='WAIT') return 'action-wait';
+    if (String(a).startsWith('Retry')||a==='Loading...') return 'action-loading';
+    return 'action-error';
+  }
+
+  function renderDirectory(filter='') {
+    const q = filter.trim().toLowerCase();
+    const ranks = computeRanks();
+
+    // Sort by trade quality first; unloaded tickers go to bottom
+    const sorted = TICKER_DIRECTORY
+      .filter(x => x.ticker.toLowerCase().includes(q) || x.name.toLowerCase().includes(q))
+      .slice()
+      .sort((a, b) => {
+        const sa = tickerState[a.ticker] || {};
+        const sb = tickerState[b.ticker] || {};
+        const ta = getTradeSortBucket(sa.tradeFilter);
+        const tb = getTradeSortBucket(sb.tradeFilter);
+        if (ta !== tb) return ta - tb;
+        const qa = getBuyQualityBucket(sa.buyQuality);
+        const qb = getBuyQualityBucket(sb.buyQuality);
+        if (qa !== qb) return qa - qb;
+        if ((sb.probHit||0) !== (sa.probHit||0)) return (sb.probHit||0) - (sa.probHit||0);
+        if ((sb.rewardRisk||0) !== (sa.rewardRisk||0)) return (sb.rewardRisk||0) - (sa.rewardRisk||0);
+        return (sa.days2pct ?? 999) - (sb.days2pct ?? 999);
+      });
+
+    $('tickerDirectory').innerHTML = sorted.map(item => {
+      const s = tickerState[item.ticker] || { action: 'Loading...' };
+      const rank = ranks[item.ticker] || '';
+      
+      // Column 1: Days to floor target
+      const d2 = s.days2pct;
+      const days2Str   = d2 != null ? d2 + 'd' : '—';
+      const days2Color = d2 != null ? (d2 <= 2 ? '#00e676' : d2 <= 5 ? '#ffd700' : '#ff8c00') : '#7a9ab8';
+      
+      // Column 2: Target net % profit
+      const pct = s.targetPct;
+      const costPct = getTotalCostPct(item.ticker);
+      const netPct = pct != null ? (pct - costPct) : null;
+      const netPctStr   = netPct != null ? netPct.toFixed(1) + '%' : '—';
+      const floorPct = s?.decision?.analysis ? getTargetFloorGrossPct(s.decision.analysis.entry, s.decision.analysis.atrPct, item.ticker) : null;
+      const netPctColor = netPct != null ? (floorPct != null && pct >= floorPct ? '#00e676' : netPct >= 1.0 ? '#ffd700' : '#ff8c00') : '#7a9ab8';
+      
+      return `<div class="ticker-row">
+        <div class="ticker-rank">${rank}</div>
+        <div class="ticker-symbol">${item.ticker}</div>
+        <div class="ticker-name">${item.name}</div>
+        <div class="ticker-action ${getActionClass(s.action)}">${s.action}</div>
+        <div class="ticker-prob" style="color:${days2Color}">${days2Str}</div>
+        <div class="ticker-prob" style="color:${netPctColor}">${netPctStr}</div>
+        <button class="ticker-load" data-ticker="${item.ticker}">Load</button>
+      </div>`;
+    }).join('');
+
+    $('tickerDirectory').querySelectorAll('.ticker-load').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $('ticker').value = btn.getAttribute('data-ticker');
+        loadChart();
+      });
+    });
+  }
+
+  // ── BACKGROUND PRELOAD ────────────────────────────────
+
+  // Shared helper: compute signed 3-day profit at 85% probability.
+  // If 85% is only achievable below entry (bearish signal), returns negative profit.
+  function calcProfit3d(a3, data, ticker) {
+    if (!a3 || !a3.entry || a3.entry <= 0 || !a3.atrPct || !a3.signalConditions) return null;
+    const entry   = a3.entry;
+    const account = getAccount();
+    const shares  = account / entry;
+    const costPct = getTotalCostPct(ticker); // round-trip cost %
+    const costAbs = account * (costPct / 100); // £ cost on full position
+
+    // Search upside first: largest positive % still achieving 85%
+    let bestUpPct = 0;
+    let lo = 0.05, hi = 20;
+    for (let iter = 0; iter < 28; iter++) {
+      const mid = (lo + hi) / 2;
+      const p = estimateProbability(entry, entry * (1 + mid / 100), 3, a3.atrPct, a3.buyScore||0, a3.sellScore||0, data, a3.signalConditions);
+      if (p >= 85) { bestUpPct = mid; lo = mid; } else { hi = mid; }
+    }
+    if (bestUpPct > 0.05) {
+      const grossProfit = shares * entry * (bestUpPct / 100);
+      return grossProfit - costAbs; // net profit after costs
+    }
+
+    // No meaningful upside — find downside at 85%
+    let bestDownPct = 0;
+    lo = 0.05; hi = 20;
+    for (let iter = 0; iter < 28; iter++) {
+      const mid = (lo + hi) / 2;
+      const p = estimateProbability(entry, entry * (1 - mid / 100), 3, a3.atrPct, a3.buyScore||0, a3.sellScore||0, data, a3.signalConditions);
+      if (p >= 85) { bestDownPct = mid; lo = mid; } else { hi = mid; }
+    }
+    if (bestDownPct > 0.05) return -(shares * entry * (bestDownPct / 100)) - costAbs;
+
+    // Flat — just return the cost as a negative (you always pay to trade)
+    return -costAbs;
+  }
+
+  // Find minimum trading days where the maximum achievable profit at 70% probability
+  // reaches or exceeds the floor target. Used for the floor-target panel.
+  function calcDaysTo3Pct(a3, data, ticker) {
+    if (!a3 || !a3.entry || a3.entry <= 0 || !a3.atrPct || !a3.signalConditions) return null;
+    const grossFloor = getTargetFloorGrossPct(a3.entry, a3.atrPct, ticker);
+    for (let d = 1; d <= 30; d++) {
+      let lo = 0.1, hi = 20, bestPct = 0;
+      for (let iter = 0; iter < 25; iter++) {
+        const mid = (lo + hi) / 2;
+        const testSell = a3.entry * (1 + mid / 100);
+        const p = estimateProbability(a3.entry, testSell, d, a3.atrPct, a3.buyScore||0, a3.sellScore||0, data, a3.signalConditions);
+        if (p >= 70) { bestPct = mid; lo = mid; } else { hi = mid; }
+      }
+      if (bestPct >= grossFloor) return d;
+    }
+    return null;
+  }
+
+  function calcDaysTo2Pct(a3, data, ticker) {
+    if (!a3 || !a3.entry || a3.entry <= 0 || !a3.atrPct || !a3.signalConditions) return null;
+    const grossFloor = getTargetFloorGrossPct(a3.entry, a3.atrPct, ticker);
+    for (let d = 1; d <= 30; d++) {
+      let lo = 0.1, hi = 20, bestPct = 0;
+      for (let iter = 0; iter < 25; iter++) {
+        const mid = (lo + hi) / 2;
+        const testSell = a3.entry * (1 + mid / 100);
+        const p = estimateProbability(a3.entry, testSell, d, a3.atrPct, a3.buyScore||0, a3.sellScore||0, data, a3.signalConditions);
+        if (p >= 70) { bestPct = mid; lo = mid; } else { hi = mid; }
+      }
+      if (bestPct >= grossFloor) return d;
+    }
+    return null;
+  }
+
+  async function getDecisionForTicker(ticker, attempt=1) {
+    console.log(`[LOAD] Starting ticker: ${ticker} (attempt ${attempt}/${MAX_RETRIES})`);
+    tickerState[ticker]={action:attempt===1?'Loading...':`Retry ${attempt}/${MAX_RETRIES}`,rankScore:0};
+    renderDirectory($('directorySearch').value);
+    try {
+      const data = await fetchWithFallback(ticker, attempt);
+      console.log(`[SUCCESS] ${ticker}: Got ${data.length} candles`);
+      const ss   = buildSignalSet(data);
+      const dec  = buildDecision(data,ss.signals,ss.allEvents,ss.currentState,ss.ma5,ss.ma20,ss.ma50,ss.ma200,ss.rsi14,ss.ma20vol,ss.macdHist,ticker);
+
+      // Capture market regime from SPY and QQQ as they load
+      if (ticker === 'SPY') {
+        const li = data.length - 1;
+        marketRegime.spyBullish = ss.ma50[li] != null && ss.ma200[li] != null && ss.ma50[li] > ss.ma200[li];
+      }
+      if (ticker === 'QQQ') {
+        const li = data.length - 1;
+        marketRegime.qqqBullish = ss.ma50[li] != null && ss.ma200[li] != null && ss.ma50[li] > ss.ma200[li];
+      }
+
+      const a3 = dec.analysis || {};
+      let profit3d = 0, days3pct = null, days2pct = null;
+      try { profit3d = calcProfit3d(a3, data, ticker) ?? 0; profit3d = getNetProfit3dForDisplay(ticker, profit3d); } catch(e2) { profit3d = 0; }
+      try { days3pct = calcDaysTo3Pct(a3, data, ticker); } catch(e2) { days3pct = null; }
+      // Calculate days-to-floor for ranking if a target exists
+      const targetPct = dec.analysis?.solvedProfitPct || null;
+      if (targetPct != null) {
+        try { days2pct = calcDaysTo2Pct(a3, data, ticker); } catch(e2) { days2pct = null; }
+      }
+      const buyQuality = getBuyQuality(dec, dec.analysis || {});
+      const plannedEntryVerdict = getEntryVerdict(dec.analysis?.entry || null, calcBuyRange(dec.analysis?.entry, dec.analysis?.atr14val), dec.action);
+      const grossPct = dec.analysis?.entry > 0 && dec.analysis?.suggestedSell > dec.analysis?.entry ? ((dec.analysis.suggestedSell - dec.analysis.entry) / dec.analysis.entry) * 100 : 0;
+      const tickerCostPct = getTotalCostPct(ticker);
+      const netPct = grossPct - tickerCostPct;
+      const plannedFilter = getTradeFilter({ action: dec.action, entryVerdict: plannedEntryVerdict, stopPlan: dec.analysis?.stopPlan, grossPctVal: grossPct, netPctVal: netPct, prob: dec.analysis?.probHit || 0, buyQuality: buyQuality.label, atrPct: dec.analysis?.atrPct, ticker });
+      const rewardRisk = dec.analysis?.stopPlan?.riskPct ? grossPct / dec.analysis.stopPlan.riskPct : 0;
+      tickerState[ticker] = { action:dec.action, decision:dec, rankScore:dec.rankScore||0, profit3d, days3pct, days2pct, targetPct, tradeFilter: plannedFilter.label, buyQuality: buyQuality.label, probHit: dec.analysis?.probHit || 0, rewardRisk, loaded:true };
+      scheduleDirectoryRender($('directorySearch').value);
+      return { ok:true, decision:dec };
+    } catch(e) {
+      console.log(`[FAILED] ${ticker}: ${e.message}`);
+      tickerState[ticker]={ action:'Load failed', loaded:false, rankScore:0 };
+      scheduleDirectoryRender($('directorySearch').value);
+      return { ok:false, error:e };
+    }
+  }
+
+  async function preloadAll() {
+    if (preloadRunning) return;
+    preloadRunning = true;
+    setStatus('Loading directory…');
+    console.log(`[PRELOAD] Starting. Directory has ${TICKER_DIRECTORY.length} tickers`);
+
+    const seen = new Set();
+    const priority = PRIORITY_TICKERS.filter(t => TICKER_DIRECTORY.some(x => x.ticker === t));
+    const remainder = TICKER_DIRECTORY.map(x => x.ticker).filter(t => !priority.includes(t));
+    
+    console.log(`[PRELOAD] Priority: ${priority.length}, Remainder: ${remainder.length}`);
+
+    let processed = 0;
+
+    // Load priority tickers first (fire and forget)
+    for (const t of priority) {
+      if (seen.has(t)) continue;
+      seen.add(t);
+      getDecisionForTicker(t, 1);
+      processed++;
+    }
+
+    scheduleDirectoryRender();
+    await sleep(2000);
+    setStatus('Priority tickers loaded. Loading full directory…');
+    console.log(`[PRELOAD] Firing remainder tickers (${remainder.length} to go)...`);
+
+    // STAGGERED loading: Fire one, await 50ms, repeat (don't await completion)
+    for (const t of remainder) {
+      if (seen.has(t)) continue;
+      seen.add(t);
+      getDecisionForTicker(t, 1); // Fire immediately (don't await)
+      processed++;
+
+      // Update status every 5 tickers
+      if (processed % 5 === 0) {
+        console.log(`[PRELOAD] Fired ${processed}/${TICKER_DIRECTORY.length}`);
+        setStatus(`Loading directory… ${processed}/${TICKER_DIRECTORY.length}`);
+        scheduleDirectoryRender($('directorySearch').value);
+      }
+
+      // LARGE delay between fires - space them out significantly
+      await sleep(500);
+    }
+
+    console.log(`[PRELOAD] All tickers fired. Processed: ${processed}`);
+    // Wait much longer for all initial fires to complete
+    await sleep(30000); // 30 seconds - wait for initial loads
+
+    // Aggressive multi-pass retry
+    let retryPass = 0;
+    while (retryPass < 5) {
+      const failed = TICKER_DIRECTORY
+        .map(x => x.ticker)
+        .filter(t => tickerState[t] && tickerState[t].action === 'Load failed');
+
+      console.log(`[RETRY] Pass ${retryPass + 1}: ${failed.length} failures`);
+      if (failed.length === 0) break;
+
+      retryPass++;
+      setStatus(`Retry pass ${retryPass}: ${failed.length} tickers…`);
+      scheduleDirectoryRender($('directorySearch').value);
+      
+      // AWAIT the retries - space them out more
+      for (const t of failed) {
+        await getDecisionForTicker(t, 1);
+        await sleep(1000); // 1 second between each retry
+      }
+      
+      console.log(`[RETRY] Pass ${retryPass} complete. Waiting before next pass...`);
+      await sleep(15000); // 15 seconds between retry passes
+    }
+
+    preloadRunning = false;
+    const finalFailed = TICKER_DIRECTORY
+      .map(x => x.ticker)
+      .filter(t => tickerState[t] && tickerState[t].action === 'Load failed');
+    
+    console.log(`[PRELOAD] Complete. Loaded: ${TICKER_DIRECTORY.length - finalFailed.length}/${TICKER_DIRECTORY.length}`);
+    if (finalFailed.length === 0) {
+      setStatus('Directory fully loaded.');
+    } else {
+      setStatus(`Loaded ${TICKER_DIRECTORY.length - finalFailed.length}/${TICKER_DIRECTORY.length}. Click "Retry failed" for ${finalFailed.length} failures.`);
+    }
+  }
+
+  // ── MAIN LOAD ─────────────────────────────────────────
+  async function loadChart() {
+    const ticker=$('ticker').value.trim().toUpperCase();
+    if (!ticker) { setStatus('Enter a ticker.',true); return; }
+    setStatus(`Loading ${ticker}…`);
+    $('tickerLabel').textContent=ticker;
+    $('chartSubtitle').textContent=`${ticker} · volatility-adjusted target · auto sizing`;
+
+    // Reset overrides for fresh ticker
+    $('entryOverride').value = '';
+    $('sellOverride').value  = '';
+    $('daysSlider').value    = 3;
+
+    const applyLoadedState = (data) => {
+      const ss = buildSignalSet(data);
+      const dec = buildDecision(data,ss.signals,ss.allEvents,ss.currentState,ss.ma5,ss.ma20,ss.ma50,ss.ma200,ss.rsi14,ss.ma20vol,ss.macdHist,ticker);
+      currentFullData = data;
+      currentMarkers = ss.markers;
+      renderChart(currentViewDays);
+      updateStatsUI(data,ss.signals,ss.currentState,ss.currentSub,ss.rsi14,ss.ma20vol);
+      updateDecisionUI(dec);
+      const a3 = dec.analysis || {};
+      let profit3d = 0, days3pct = null, days2pct = null;
+      try { profit3d = calcProfit3d(a3, data, ticker) ?? 0; profit3d = getNetProfit3dForDisplay(ticker, profit3d); } catch(e2) { profit3d = 0; }
+      try { days3pct = calcDaysTo3Pct(a3, data, ticker); } catch(e2) { days3pct = null; }
+      // Calculate days-to-floor for ranking if a target exists
+      const targetPct = dec.analysis?.solvedProfitPct || null;
+      if (targetPct != null) {
+        try { days2pct = calcDaysTo2Pct(a3, data, ticker); } catch(e2) { days2pct = null; }
+      }
+      const buyQuality = getBuyQuality(dec, dec.analysis || {});
+      const plannedEntryVerdict = getEntryVerdict(dec.analysis?.entry || null, calcBuyRange(dec.analysis?.entry, dec.analysis?.atr14val), dec.action);
+      const grossPct = dec.analysis?.entry > 0 && dec.analysis?.suggestedSell > dec.analysis?.entry ? ((dec.analysis.suggestedSell - dec.analysis.entry) / dec.analysis.entry) * 100 : 0;
+      const tickerCostPct = getTotalCostPct(ticker);
+      const netPct = grossPct - tickerCostPct;
+      const plannedFilter = getTradeFilter({ action: dec.action, entryVerdict: plannedEntryVerdict, stopPlan: dec.analysis?.stopPlan, grossPctVal: grossPct, netPctVal: netPct, prob: dec.analysis?.probHit || 0, buyQuality: buyQuality.label, atrPct: dec.analysis?.atrPct, ticker });
+      const rewardRisk = dec.analysis?.stopPlan?.riskPct ? grossPct / dec.analysis.stopPlan.riskPct : 0;
+      tickerState[ticker] = { action:dec.action, decision:dec, rankScore:dec.rankScore||0, profit3d, days3pct, days2pct, targetPct, tradeFilter: plannedFilter.label, buyQuality: buyQuality.label, probHit: dec.analysis?.probHit || 0, rewardRisk, loaded:true };
+      scheduleDirectoryRender();
+      return dec;
+    };
+
+    // Earnings check
+    const ed = checkEarnings(ticker);
+    if (ed) {
+      $('earningsWarn').classList.add('visible');
+      $('earningsText').textContent=`⚠️ Earnings report near ${fdate(ed)} — avoid overnight hold through this date.`;
+    } else {
+      $('earningsWarn').classList.remove('visible');
+    }
+
+    try {
+      const cached = readTickerCache(ticker);
+      if (cached) {
+        applyLoadedState(cached);
+        setStatus(`Loaded ${ticker} from cache… refreshing.`);
+        fetchWithFallback(ticker, 1, false).then(fresh => {
+          applyLoadedState(fresh);
+          setStatus(`Loaded ${ticker}.`);
+        }).catch(err => {
+          console.error(err);
+          setStatus(`Loaded ${ticker} from cache.`);
+        });
+        return;
+      }
+
+      const data = await fetchWithFallback(ticker, 1, false);
+      applyLoadedState(data);
+      setStatus(`Loaded ${ticker}.`);
+    } catch(e) {
+      console.error(e);
+      candleSeries.setData([]); candleSeries.setMarkers([]);
+      volumeSeries.setData([]);
+      updateDecisionUI({action:'WAIT',confidence:'—',reason:`Could not load ${ticker}.`, analysis:{}});
+      setStatus(`Failed: ${ticker}.`,true);
+    }
+  }
+
+  // ── EXPORT SIGNALS CSV ────────────────────────────────
+  // ── VIEW TABS ─────────────────────────────────────────
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      currentViewDays=Number(tab.getAttribute('data-days'));
+      renderChart(currentViewDays);
+    });
+  });
+
+  // ── EVENT LISTENERS ───────────────────────────────────
+  $('loadBtn').addEventListener('click', loadChart);
+  
+  let lastRetryTime = 0;
+  const RETRY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+  
+  function updateRetryButtonState() {
+    const timeSinceLastRetry = Date.now() - lastRetryTime;
+    const canRetry = timeSinceLastRetry >= RETRY_COOLDOWN_MS;
+    
+    if (canRetry) {
+      $('retryBtn').disabled = false;
+      $('retryBtn').textContent = '↺ Retry failed now';
+    } else {
+      $('retryBtn').disabled = true;
+      const secondsLeft = Math.ceil((RETRY_COOLDOWN_MS - timeSinceLastRetry) / 1000);
+      const minutesLeft = Math.ceil(secondsLeft / 60);
+      $('retryBtn').textContent = `⏱ Wait ${minutesLeft}m (IP block expires)`;
+    }
+  }
+  
+  $('retryBtn').addEventListener('click', async()=>{
+    const failed=TICKER_DIRECTORY.map(x=>x.ticker).filter(t=>tickerState[t] && tickerState[t].action==='Load failed');
+    
+    if (failed.length === 0) {
+      setStatus('No failed tickers to retry!');
+      return;
+    }
+    
+    lastRetryTime = Date.now();
+    updateRetryButtonState();
+    
+    setStatus(`Retrying ${failed.length} failed tickers…`);
+    console.log(`[RETRY] Attempting ${failed.length} failed tickers after wait period`);
+    
+    for (let i = 0; i < failed.length; i++) {
+      const t = failed[i];
+      // Clear the failed state before retrying
+      tickerState[t] = { action: 'Retrying...', rankScore: 0 };
+      renderDirectory($('directorySearch').value);
+      
+      await getDecisionForTicker(t, 1);
+      
+      if ((i + 1) % 10 === 0) {
+        setStatus(`Retrying… ${i + 1}/${failed.length}`);
+      }
+      
+      await sleep(200);
+    }
+    
+    const stillFailed = TICKER_DIRECTORY.map(x=>x.ticker).filter(t=>tickerState[t] && tickerState[t].action==='Load failed');
+    if (stillFailed.length === 0) {
+      setStatus('All tickers loaded! ✓');
+    } else {
+      setStatus(`Retry complete. ${stillFailed.length} still failed. Wait 5 min and retry again.`);
+    }
+    
+    scheduleDirectoryRender($('directorySearch').value);
+  });
+  
+  // Update retry button state every second
+  setInterval(updateRetryButtonState, 1000);
+  
+  $('ticker').addEventListener('keydown', e=>{ if(e.key==='Enter') loadChart(); });
+  $('directorySearch').addEventListener('input',()=>renderDirectory($('directorySearch').value));
+
+  // Download status button
+  $('downloadBtn').addEventListener('click', ()=>{
+    let csv = 'Rank,Ticker,Status,Action\n';
+    
+    const allTickers = TICKER_DIRECTORY.map(x => x.ticker);
+    
+    allTickers.forEach((ticker, index) => {
+      const state = tickerState[ticker];
+      const status = state ? (state.loaded ? 'LOADED' : 'FAILED') : 'PENDING';
+      const action = state ? state.action : 'Not loaded yet';
+      
+      csv += `${index + 1},"${ticker}","${status}","${action}"\n`;
+    });
+    
+    // Create blob and download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ticker-status-${new Date().getTime()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    setStatus(`Downloaded status for ${allTickers.length} tickers`);
+  });
+
+  // Interactive plan panel controls
+  $('entryOverride').addEventListener('input', () => recalcPlanPanel());
+  $('sellOverride').addEventListener('input',  () => recalcPlanPanel());
+  $('daysSlider').addEventListener('input',    () => recalcPlanPanel());
+
+  // Account size change → recalc without full reload
+  $('accountSize').addEventListener('change',()=>{ recalcPlanPanel(); });
+
+  // ── INIT ──────────────────────────────────────────────
+  initChart();
+  TICKER_DIRECTORY.forEach(item=>{ tickerState[item.ticker]={action:'Loading...',rankScore:0}; });
+  scheduleDirectoryRender();
+  updateDecisionUI({action:'WAIT',confidence:'—',reason:'Load a ticker to calculate the current action.'});
+  setStatus('Ready. Stable mode enabled — slower pacing with connection resets.');
+  preloadAll();
+</script>
+</body>
+</html>
